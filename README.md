@@ -251,6 +251,25 @@ adb install vendor/mobile_a_samsung_s26_module/*.apk
 - [ ] Offload simulation shows CPU vs accelerator usage graph
 - [ ] MOBILE-A verification ensures vendor module activates only on Samsung S26 with AMD accelerator
 
+## 📋 Formatting the Files before Contributing
+>_will be implemented in the next PR, under construction_
+
+### Check formatting
+```bash
+./gradlew spotlessCheck
+```
+
+### Auto-fix formatting
+
+```bash
+./gradlew spotlessApply
+```
+
+Behavior:
+- Pre-commit hook: Warns on violations but allows commit (run spotlessApply to fix)
+- GitHub Actions: Fails build on any violation (strict)
+The CI workflow runs spotlessCheck before building - any formatting violations will fail the CI build.
+
 ---
 
 ## 📋 Technical Specifications
