@@ -28,16 +28,19 @@ Sentinoid binds secrets to physical silicon and biometric presence. If the devic
 ## 🔐 Core Security Pillars
 
 ### Biometric-Bound Cryptographic Shroud
+
 - **Encrypted Wrapping:** AES-256-GCM for vaults and sensitive app data
 - **TEE Binding:** Keys generated inside the TEE and unsealed only on biometric match
 - **InvalidatedByBiometricEnrollment:** Adding a new biometric triggers immediate key purge
 
 ### Connectivity Shield
+
 - **Zero Internet Manifest:** `android.permission.INTERNET` is intentionally absent
 - **Air-Gap Enforcement:** Runtime monitoring terminates unauthorized Wi-Fi, Bluetooth, NFC attempts
 - **Unidirectional Update Diode:** Updates delivered via signed BIP39 QR bundles; device never requests network access
 
 ### Feature Permission Manager (FPM)
+
 - **Service-Level Interception:** Uses Accessibility and Device Admin to intercept Mic, Camera, GPS calls
 - **Mock-Stream Injection:** Unauthorized callers receive null or static streams to avoid alerting malware while preserving OS stability
 
@@ -46,14 +49,17 @@ Sentinoid binds secrets to physical silicon and biometric presence. If the devic
 ## 🛡️ Advanced Tactical Defense
 
 ### Honeypot Trap
+
 - **Ghost Data:** AI-generated decoy logs and files that look realistic to scrapers
 - **Silent Alarm:** Unauthorized access to ghost data triggers local Total Lockdown and records hardware ID
 
 ### Hardware Watchdog & Anti-Tamper
+
 - **Integrity Monitoring:** Detects rooting, bootloader unlock, USB debugging, and voltage anomalies
 - **Self-Destruct Protocol:** Hardware keys are purged on tamper conditions or unauthorized biometric enrollment
 
 ### Local Heuristic Malware Engine
+
 - **Offline Behavioral Analysis:** Compressed INT8 TFLite model for overlay and screen-scraping detection
 - **Compressed Hash Registry:** Local signatures for known threats
 - **Battery Optimized:** Asynchronous scanning designed for minimal drain (demo target <1%)
@@ -99,9 +105,11 @@ Three Atmospheres share one core engine (LACE) and a hardware abstraction layer.
 | **MOBILE-A** | Samsung S26 with AMD accelerator | RDNA frame-buffer obfuscation, NPU-driven gait/proximity locks |
 
 ### Hardware Auto Detect
+
 HAL chooses execution path: NPU → OpenVINO/AVX → Standard C++ heuristics.
 
 ### Adoption Bridge
+
 Bridge Mode uses USB encrypted telemetry so high-performance AMD PCs can act as local security clouds for budget devices without Internet.
 
 ---
@@ -134,24 +142,28 @@ Bridge Mode uses USB encrypted telemetry so high-performance AMD PCs can act as 
 **Duration:** 4 weeks (28 days)
 
 ### Week 1 — Core Crypto & Recovery
+
 - Day 1–2: Implement BIP39 provider and unit tests
 - Day 3–4: Implement AES-256-GCM vault wrapper and Keystore integration
 - Day 5–7: Implement TEE binding and InvalidatedByBiometricEnrollment lifecycle
 - **Milestone:** Offline Emergency Recovery using 2 of 3 shards
 
 ### Week 2 — Interception & Honeypot
+
 - Day 8–10: Build FPMInterceptor using Accessibility and Device Admin hooks
 - Day 11–13: Implement HoneypotEngine and silent alarm logging
 - Day 14: Integrate WatchdogService root/bootloader checks
 - **Milestone:** Ghost file access triggers local lockdown
 
 ### Week 3 — Local AI & Optimization
+
 - Day 15–17: Integrate malware_model.tflite and wire LACE inference pipeline
 - Day 18–20: Optimize inference with XNNPACK and quantized INT8 path
 - Day 21: Battery profiling and tuning
 - **Milestone:** Heuristic detection with minimal battery impact
 
 ### Week 4 — Bridge Mode & Demo Polish
+
 - Day 22–24: Implement USB Bridge Mode and Action Token protocol
 - Day 25–26: Add accelerator offload simulation and performance gauge UI
 - Day 27: Full end-to-end hero demo run
@@ -190,7 +202,7 @@ Sentinoid/
 ### 1. Clone and Build
 
 ```bash
-git clone https://github.com/yourusername/Sentinoid.git
+git clone https://github.com/Prakhar1808/Sentinoid.git
 cd Sentinoid
 
 # Build the C++ LACE core
@@ -220,6 +232,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ### 5. Optional: MOBILE-A Module
 
 On Samsung S26 with AMD accelerator:
+
 ```bash
 adb install vendor/mobile_a_samsung_s26_module/*.apk
 ```
