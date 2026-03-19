@@ -29,11 +29,20 @@ class WatchdogManager(context: Context) {
     }
 
     private fun loadModelFile(context: Context): MappedByteBuffer {
-        val fileDescriptor = context.assets.openFd("malware_model.tflite")
-        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
-        val fileChannel = inputStream.channel
-        val startOffset = fileDescriptor.startOffset
-        val declaredLength = fileDescriptor.declaredLength
-        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+        context.assets.openFd("malware_model.tflite").use { fileDescriptor ->
+            FileInputStream(fileDescriptor.fileDescriptor).use { inputStream ->
+                val fileChannel = inputStream.channel
+                return fileChannel.map(
+                    FileChannel.MapMode.READ_ONLY,
+                    fileDescriptor.startOffset,
+                    fileDescriptor.declaredLength
+                )
+            }
+        }
+    }
+
+    fun close() {
+        interpreter?.close()
+        interpreter = null
     }
 }
