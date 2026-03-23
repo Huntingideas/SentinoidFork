@@ -10,7 +10,6 @@ import java.security.SecureRandom
 import javax.crypto.KeyGenerator
 import cash.z.ecc.android.bip39.Mnemonics
 import cash.z.ecc.android.bip39.toSeed
-import android.security.keystore.KeyGenParameterSpec
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
@@ -118,5 +117,15 @@ object KeyManager {
                 .build()
         )
         keyGenerator.generateKey()
+    }
+
+    fun getOrCreatePassphrase(context: Context): ByteArray {
+        return if (hasPassphrase(context)) {
+            getPassphrase(context)
+        } else {
+            val mnemonic = generateMnemonic()
+            saveMnemonicSecure(context, mnemonic)
+            derivePassphraseFromMnemonic(mnemonic)
+        }
     }
 }
