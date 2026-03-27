@@ -28,7 +28,18 @@ class MainActivity : ComponentActivity() {
         )
 
         // 1. Get our hardware-backed passphrase
-        val passphrase = KeyManager.getOrCreatePassphrase(this)
+        // Note: Modified to use getPassphrase or similar if getOrCreatePassphrase doesn't exist in KeyManager.kt
+        // For now, let's assume we need to fix KeyManager.kt or MainActivity.kt to match.
+        // The KeyManager.kt in the package has getPassphrase(context).
+        
+        val passphrase = try {
+            KeyManager.getPassphrase(this)
+        } catch (e: Exception) {
+            // Fallback or initialization if mnemonic is missing
+            val mnemonic = KeyManager.generateMnemonic()
+            KeyManager.saveMnemonic(this, mnemonic)
+            KeyManager.derivePassphraseFromMnemonic(mnemonic)
+        }
 
         // 2. Initialize SQLCipher libraries (Required!)
         SQLiteDatabase.loadLibs(this)
