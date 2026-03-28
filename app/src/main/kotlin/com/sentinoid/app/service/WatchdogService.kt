@@ -15,6 +15,7 @@ import android.os.PowerManager
 import android.os.Process
 import androidx.core.app.NotificationCompat
 import com.sentinoid.app.R
+import com.sentinoid.app.security.ActivityLogger
 import com.sentinoid.app.security.CryptoManager
 import com.sentinoid.app.security.HoneypotEngine
 import com.sentinoid.app.security.SecurePreferences
@@ -55,6 +56,7 @@ class WatchdogService : Service() {
     private lateinit var cryptoManager: CryptoManager
     private lateinit var securePreferences: SecurePreferences
     private lateinit var honeypotEngine: HoneypotEngine
+    private val activityLogger by lazy { ActivityLogger.getInstance(this) }
     private var wakeLock: PowerManager.WakeLock? = null
     private var isRunning = false
     private var watchdogThread: Thread? = null
@@ -113,8 +115,11 @@ class WatchdogService : Service() {
         watchdogThread = Thread { runWatchdogLoop() }.apply { start() }
         startHeartbeatMonitor()
 
+        activityLogger.logWatchdog("Watchdog service started", ActivityLogger.SEVERITY_INFO)
+
         if (resurrectionCount > 0) {
             logSecurityEvent("WATCHDOG_RESURRECTED: count=$resurrectionCount")
+            activityLogger.logWatchdog("Watchdog resurrected (count: $resurrectionCount)", ActivityLogger.SEVERITY_WARNING)
         }
     }
 
@@ -265,6 +270,7 @@ class WatchdogService : Service() {
         if (currentTime - lastTamperAlertTime < TAMPER_ALERT_COOLDOWN_MS) {
             tamperAlertCount++
             logSecurityEvent("TAMPER_SUPPRESSED: $reason (count: $tamperAlertCount)")
+            activityLogger.logTamper("Tamper suppressed: $reason", ActivityLogger.SEVERITY_WARNING, mapOf("count" to tamperAlertCount.toString()))
             return
         }
         
@@ -272,6 +278,7 @@ class WatchdogService : Service() {
         tamperAlertCount++
         
         logSecurityEvent("TAMPER_DETECTED: $reason")
+        activityLogger.logTamper("Tamper detected: $reason", ActivityLogger.SEVERITY_CRITICAL, mapOf("alert_count" to tamperAlertCount.toString()))
 
         // Broadcast first so UI can update
         val intent =
@@ -352,6 +359,8 @@ class WatchdogService : Service() {
             if (wakeLock?.isHeld == true) wakeLock?.release()
         } catch (e: Exception) {
         }
+
+        activityLogger.logWatchdog("Watchdog service stopped", ActivityLogger.SEVERITY_INFO)
 
         if (!isExplicitlyStopped()) {
             triggerResurrection()
