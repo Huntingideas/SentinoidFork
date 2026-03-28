@@ -1,5 +1,6 @@
 package com.sentinoid.app.ui
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -82,6 +83,11 @@ class RecoveryActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 currentShards = shards
                 shardAdapter.submitList(shards)
+                
+                // Show empty state message if no shards
+                if (shards.isEmpty() && recoveryManager.isRecoverySetup()) {
+                    tvStatus.text = "Shards encrypted - tap 'Setup Recovery' to view"
+                }
             }
         }
     }
@@ -265,25 +271,38 @@ class RecoveryActivity : AppCompatActivity() {
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = TextView(parent.context).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-                val padding = (16 * parent.context.resources.displayMetrics.density).toInt()
-                setPadding(padding, padding, padding, padding)
-                textSize = 12f
-                setTextColor(parent.context.getColor(android.R.color.white))
-            }
+            val view = LayoutInflater.from(parent.context)
+                .inflate(android.R.layout.simple_list_item_2, parent, false)
             return ViewHolder(view)
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val shard = shards[position]
-            (holder.itemView as TextView).text = "Shard ${position + 1}: ${shard.take(10)}...${shard.takeLast(10)}"
+            holder.bind(position + 1, shard)
         }
 
         override fun getItemCount() = shards.size
-        class ViewHolder(view: View) : RecyclerView.ViewHolder(view)
+
+        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            private val titleView: TextView = view.findViewById(android.R.id.text1)
+            private val contentView: TextView = view.findViewById(android.R.id.text2)
+
+            fun bind(shardNumber: Int, shard: String) {
+                titleView.text = "Shard $shardNumber (2-of-3 required)"
+                contentView.text = shard
+                contentView.setTextIsSelectable(true)
+                contentView.setOnLongClickListener {
+                    copyToClipboard("Shard $shardNumber", shard)
+                    Toast.makeText(itemView.context, "Shard $shardNumber copied!", Toast.LENGTH_SHORT).show()
+                    true
+                }
+            }
+
+            private fun copyToClipboard(label: String, text: String) {
+                val clipboard = itemView.context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = android.content.ClipData.newPlainText(label, text)
+                clipboard.setPrimaryClip(clip)
+            }
+        }
     }
 }
