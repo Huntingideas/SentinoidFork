@@ -3,13 +3,12 @@ package com.sentinoid.shield
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.KeyStore
-import java.security.SecureRandom
 import javax.crypto.KeyGenerator
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 
 object KeyManager {
     private const val DB_KEY_ALIAS = "SentinoidDbKey"
@@ -19,16 +18,17 @@ object KeyManager {
     private const val MNEMONIC_KEY = "mnemonic_phrase"
 
     private fun getEncryptedPrefs(context: Context): android.content.SharedPreferences {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+        val masterKey =
+            MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
 
         return EncryptedSharedPreferences.create(
             context,
             PREFS_NAME,
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         )
     }
 
@@ -46,7 +46,10 @@ object KeyManager {
         return generateRecoveryPhrase().joinToString(" ")
     }
 
-    fun saveMnemonicSecure(context: Context, mnemonic: String) {
+    fun saveMnemonicSecure(
+        context: Context,
+        mnemonic: String,
+    ) {
         val prefs = getEncryptedPrefs(context)
         prefs.edit().putString(MNEMONIC_KEY, mnemonic).apply()
     }
@@ -77,21 +80,23 @@ object KeyManager {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
 
         if (!keyStore.containsAlias(HANDSHAKE_KEY_ALIAS)) {
-            val kpg = KeyPairGenerator.getInstance(
-                KeyProperties.KEY_ALGORITHM_RSA,
-                "AndroidKeyStore"
-            )
-            val parameterSpec = KeyGenParameterSpec.Builder(
-                HANDSHAKE_KEY_ALIAS,
-                KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
-            ).run {
-                setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
-                setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PSS)
-                setKeySize(2048)
-                setUserAuthenticationRequired(true)
-                setInvalidatedByBiometricEnrollment(true)
-                build()
-            }
+            val kpg =
+                KeyPairGenerator.getInstance(
+                    KeyProperties.KEY_ALGORITHM_RSA,
+                    "AndroidKeyStore",
+                )
+            val parameterSpec =
+                KeyGenParameterSpec.Builder(
+                    HANDSHAKE_KEY_ALIAS,
+                    KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY,
+                ).run {
+                    setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                    setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PSS)
+                    setKeySize(2048)
+                    setUserAuthenticationRequired(true)
+                    setInvalidatedByBiometricEnrollment(true)
+                    build()
+                }
             kpg.initialize(parameterSpec)
             kpg.generateKeyPair()
         }
@@ -105,11 +110,11 @@ object KeyManager {
         keyGenerator.init(
             KeyGenParameterSpec.Builder(
                 "SelfDestructKey",
-                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
             )
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .build()
+                .build(),
         )
         keyGenerator.generateKey()
     }

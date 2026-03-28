@@ -5,7 +5,6 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import android.util.Base64
-import androidx.biometric.BiometricPrompt
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
@@ -16,7 +15,6 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 class CryptoManager(private val context: Context) {
-
     companion object {
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val KEY_ALIAS = "sentinoid_master_key"
@@ -32,9 +30,10 @@ class CryptoManager(private val context: Context) {
         const val PREFS_HONEYPOT_DATA = "honeypot_data"
     }
 
-    private val keyStore: KeyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply {
-        load(null)
-    }
+    private val keyStore: KeyStore =
+        KeyStore.getInstance(ANDROID_KEYSTORE).apply {
+            load(null)
+        }
 
     private val securePreferences = SecurePreferences(context)
 
@@ -56,21 +55,23 @@ class CryptoManager(private val context: Context) {
             return keyStore.getKey(KEY_ALIAS, null) as SecretKey
         }
 
-        val keyGen = KeyGenerator.getInstance(
-            KeyProperties.KEY_ALGORITHM_AES,
-            ANDROID_KEYSTORE
-        )
+        val keyGen =
+            KeyGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_AES,
+                ANDROID_KEYSTORE,
+            )
 
-        val builder = KeyGenParameterSpec.Builder(
-            KEY_ALIAS,
-            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-        )
-            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .setKeySize(KEY_SIZE)
-            .setUserAuthenticationRequired(true)
-            .setInvalidatedByBiometricEnrollment(true)
-            .setRandomizedEncryptionRequired(true)
+        val builder =
+            KeyGenParameterSpec.Builder(
+                KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(KEY_SIZE)
+                .setUserAuthenticationRequired(true)
+                .setInvalidatedByBiometricEnrollment(true)
+                .setRandomizedEncryptionRequired(true)
 
         // Try to use StrongBox if available
         try {
@@ -104,10 +105,11 @@ class CryptoManager(private val context: Context) {
         val ciphertext = cipher.doFinal(plaintext.toByteArray(StandardCharsets.UTF_8))
 
         // Combine IV + ciphertext
-        val combined = ByteBuffer.allocate(iv.size + ciphertext.size)
-            .put(iv)
-            .put(ciphertext)
-            .array()
+        val combined =
+            ByteBuffer.allocate(iv.size + ciphertext.size)
+                .put(iv)
+                .put(ciphertext)
+                .array()
 
         return Base64.encodeToString(combined, Base64.NO_WRAP)
     }
@@ -125,12 +127,18 @@ class CryptoManager(private val context: Context) {
         return String(decrypted, StandardCharsets.UTF_8)
     }
 
-    fun encryptWithPasskey(plaintext: String, cipher: Cipher): String {
+    fun encryptWithPasskey(
+        plaintext: String,
+        cipher: Cipher,
+    ): String {
         val ciphertext = cipher.doFinal(plaintext.toByteArray(StandardCharsets.UTF_8))
         return Base64.encodeToString(ciphertext, Base64.NO_WRAP)
     }
 
-    fun decryptWithPasskey(ciphertext: String, cipher: Cipher): String {
+    fun decryptWithPasskey(
+        ciphertext: String,
+        cipher: Cipher,
+    ): String {
         val encrypted = Base64.decode(ciphertext, Base64.NO_WRAP)
         val decrypted = cipher.doFinal(encrypted)
         return String(decrypted, StandardCharsets.UTF_8)

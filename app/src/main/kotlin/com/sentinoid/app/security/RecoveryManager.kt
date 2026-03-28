@@ -5,9 +5,8 @@ import java.security.MessageDigest
 
 class RecoveryManager(
     private val cryptoManager: CryptoManager,
-    private val securePreferences: SecurePreferences
+    private val securePreferences: SecurePreferences,
 ) {
-
     companion object {
         private const val SHARD_COUNT = 3
         private const val SHARD_THRESHOLD = 2
@@ -22,38 +21,42 @@ class RecoveryManager(
 
     data class RecoverySetup(
         val mnemonicWords: List<String>,
-        val shardStrings: List<String>
+        val shardStrings: List<String>,
     )
 
     fun setupRecovery(): RecoverySetup {
         // Generate 24-word BIP39 mnemonic
         val mnemonic = bip39Provider.generateMnemonic(24)
-        
+
         // Hash the 64-byte seed to 32 bytes for Shamir splitting (fits in 257-bit prime)
         val seedHash = hashSeed(mnemonic.seed)
-        
+
         // Split the hashed seed into 3 shards (2-of-3 threshold)
         val shares = shamir.splitSecret(seedHash, SHARD_THRESHOLD, SHARD_COUNT)
-        
+
         // Convert shares to string representations
         val shardStrings = shares.map { it.toStringRepresentation() }
-        
+
         // Store encrypted shards
         shares.forEachIndexed { index, share ->
             val encrypted = cryptoManager.encrypt(share.toStringRepresentation())
             securePreferences.putString("${PREFS_SHARD_PREFIX}${index + 1}", encrypted)
         }
-        
+
         // Store encrypted master key reference
-        securePreferences.putString(PREFS_MASTER_KEY_ENCRYPTED, 
-            cryptoManager.encrypt(mnemonic.masterKey.joinToString("") { "%02x".format(it) }))
-        
+        securePreferences.putString(
+            PREFS_MASTER_KEY_ENCRYPTED,
+            cryptoManager.encrypt(mnemonic.masterKey.joinToString("") { "%02x".format(it) }),
+        )
+
         // Store seed hash for verification
-        securePreferences.putString(PREFS_SEED_HASH, 
-            cryptoManager.encrypt(seedHash.joinToString("") { "%02x".format(it) }))
-        
+        securePreferences.putString(
+            PREFS_SEED_HASH,
+            cryptoManager.encrypt(seedHash.joinToString("") { "%02x".format(it) }),
+        )
+
         securePreferences.putBoolean(PREFS_RECOVERY_SETUP, true)
-        
+
         return RecoverySetup(mnemonic.words, shardStrings)
     }
 
@@ -68,9 +71,10 @@ class RecoveryManager(
 
         return try {
             // Parse shares from strings
-            val shares = shardStrings.take(SHARD_THRESHOLD).map { 
-                ShamirSecretSharing.Share.fromString(it) 
-            }
+            val shares =
+                shardStrings.take(SHARD_THRESHOLD).map {
+                    ShamirSecretSharing.Share.fromString(it)
+                }
 
             // Validate shares belong to same set
             if (!shamir.validateShares(shares)) {
@@ -79,10 +83,10 @@ class RecoveryManager(
 
             // Reconstruct the secret
             val reconstructedSeed = shamir.reconstructSecret(shares)
-            
+
             // Verify against stored hash if available
             val success = verifyReconstructedSeed(reconstructedSeed)
-            
+
             if (success) {
                 RecoveryResult.Success(reconstructedSeed)
             } else {
@@ -102,7 +106,7 @@ class RecoveryManager(
             val seed = bip39Provider.mnemonicToSeed(words)
             val seedHash = hashSeed(seed)
             val success = verifyReconstructedSeed(seedHash)
-            
+
             if (success) {
                 RecoveryResult.Success(seedHash)
             } else {
@@ -132,7 +136,7 @@ class RecoveryManager(
 
     fun getStoredShard(index: Int): String? {
         if (index < 1 || index > SHARD_COUNT) return null
-        val encrypted = securePreferences.getString("${PREFS_SHARD_PREFIX}${index}") ?: return null
+        val encrypted = securePreferences.getString("${PREFS_SHARD_PREFIX}$index") ?: return null
         return try {
             cryptoManager.decrypt(encrypted)
         } catch (e: Exception) {
@@ -142,7 +146,7 @@ class RecoveryManager(
 
     fun purgeAllRecoveryData() {
         (1..SHARD_COUNT).forEach { index ->
-            securePreferences.remove("${PREFS_SHARD_PREFIX}${index}")
+            securePreferences.remove("${PREFS_SHARD_PREFIX}$index")
         }
         securePreferences.remove(PREFS_RECOVERY_SETUP)
         securePreferences.remove(PREFS_MASTER_KEY_ENCRYPTED)
@@ -160,6 +164,7 @@ class RecoveryManager(
 
     sealed class RecoveryResult {
         data class Success(val seed: ByteArray) : RecoveryResult()
+
         data class Error(val message: String) : RecoveryResult()
     }
 }

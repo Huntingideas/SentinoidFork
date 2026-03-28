@@ -1,7 +1,6 @@
 package com.sentinoid.shield
 
 import android.content.Context
-import android.content.Intent
 import android.util.Log
 
 /**
@@ -16,7 +15,6 @@ import android.util.Log
  * TODO: Add option to capture attacker information
  */
 object SilentAlarmManager {
-
     private const val TAG = "SilentAlarmManager"
 
     /**
@@ -27,14 +25,14 @@ object SilentAlarmManager {
      */
     fun triggerLockdown(context: Context? = null) {
         Log.w(TAG, "HONEYPOT TRIGGERED - lockdown initiated")
-        
+
         // TODO: Implement actual lockdown logic
         // Options:
         // 1. Lock device via DevicePolicyManager
         // 2. Wipe sensitive data
         // 3. Send alert to security server
         // 4. Take screenshot of potential attacker
-        
+
         // For now, just log the event - implement actual response based on security requirements
     }
 

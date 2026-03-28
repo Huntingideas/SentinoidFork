@@ -7,7 +7,6 @@ import android.util.Log
  * Security orchestration manager that coordinates all security checks.
  */
 class WatchdogManager(context: Context) {
-
     companion object {
         private const val TAG = "WatchdogManager"
         private const val DEFAULT_HIGH_RISK_THRESHOLD = 0.7f

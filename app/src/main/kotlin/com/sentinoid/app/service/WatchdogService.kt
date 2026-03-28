@@ -22,32 +22,32 @@ import com.sentinoid.app.ui.MainActivity
 import java.io.File
 
 class WatchdogService : Service() {
-
     companion object {
         const val ACTION_START = "com.sentinoid.app.action.START_WATCHDOG"
         const val ACTION_STOP = "com.sentinoid.app.action.STOP_WATCHDOG"
         const val ACTION_HEARTBEAT = "com.sentinoid.app.action.HEARTBEAT"
         const val ACTION_RESURRECT = "com.sentinoid.app.action.RESURRECT"
         const val ACTION_TAMPER_DETECTED = "com.sentinoid.app.action.TAMPER_DETECTED"
-        
+
         private const val NOTIFICATION_ID = 1001
         private const val NOTIFICATION_CHANNEL_ID = "watchdog_channel"
         private const val WAKELOCK_TAG = "Sentinoid:WatchdogWakeLock"
         private const val HEARTBEAT_INTERVAL_MS = 30000L
         private const val MAX_HEARTBEAT_MISS = 3
-        
-        private val ROOT_INDICATORS = listOf(
-            "/system/app/Superuser.apk",
-            "/sbin/su",
-            "/system/bin/su",
-            "/system/xbin/su",
-            "/data/local/xbin/su",
-            "/data/local/bin/su",
-            "/system/sd/xbin/su",
-            "/system/bin/failsafe/su",
-            "/data/local/su",
-            "/su/bin/su"
-        )
+
+        private val ROOT_INDICATORS =
+            listOf(
+                "/system/app/Superuser.apk",
+                "/sbin/su",
+                "/system/bin/su",
+                "/system/xbin/su",
+                "/data/local/xbin/su",
+                "/data/local/bin/su",
+                "/system/sd/xbin/su",
+                "/system/bin/failsafe/su",
+                "/data/local/su",
+                "/su/bin/su",
+            )
     }
 
     private lateinit var cryptoManager: CryptoManager
@@ -69,7 +69,11 @@ class WatchdogService : Service() {
         resurrectionHandler = Handler(Looper.getMainLooper())
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         when (intent?.action) {
             ACTION_START -> startWatchdog()
             ACTION_STOP -> {
@@ -92,19 +96,19 @@ class WatchdogService : Service() {
             recordHeartbeat()
             return
         }
-        
+
         createNotificationChannel()
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification)
-        
+
         acquireWakeLock()
-        
+
         isRunning = true
         recordHeartbeat()
-        
+
         watchdogThread = Thread { runWatchdogLoop() }.apply { start() }
         startHeartbeatMonitor()
-        
+
         if (resurrectionCount > 0) {
             logSecurityEvent("WATCHDOG_RESURRECTED: count=$resurrectionCount")
         }
@@ -115,42 +119,45 @@ class WatchdogService : Service() {
     }
 
     private fun startHeartbeatMonitor() {
-        heartbeatRunnable = Runnable {
-            if (isRunning) {
-                val timeSinceLastHeartbeat = System.currentTimeMillis() - lastHeartbeat
-                
-                if (timeSinceLastHeartbeat > HEARTBEAT_INTERVAL_MS * MAX_HEARTBEAT_MISS) {
-                    logSecurityEvent("WATCHDOG_STALLED: restarting")
-                    restartService()
-                } else {
-                    sendHeartbeatBroadcast()
+        heartbeatRunnable =
+            Runnable {
+                if (isRunning) {
+                    val timeSinceLastHeartbeat = System.currentTimeMillis() - lastHeartbeat
+
+                    if (timeSinceLastHeartbeat > HEARTBEAT_INTERVAL_MS * MAX_HEARTBEAT_MISS) {
+                        logSecurityEvent("WATCHDOG_STALLED: restarting")
+                        restartService()
+                    } else {
+                        sendHeartbeatBroadcast()
+                    }
+
+                    resurrectionHandler?.postDelayed(heartbeatRunnable!!, HEARTBEAT_INTERVAL_MS)
                 }
-                
-                resurrectionHandler?.postDelayed(heartbeatRunnable!!, HEARTBEAT_INTERVAL_MS)
             }
-        }
         resurrectionHandler?.post(heartbeatRunnable!!)
     }
 
     private fun sendHeartbeatBroadcast() {
-        val intent = Intent(ACTION_HEARTBEAT).apply {
-            setPackage(packageName)
-            putExtra("timestamp", System.currentTimeMillis())
-            putExtra("pid", Process.myPid())
-        }
+        val intent =
+            Intent(ACTION_HEARTBEAT).apply {
+                setPackage(packageName)
+                putExtra("timestamp", System.currentTimeMillis())
+                putExtra("pid", Process.myPid())
+            }
         sendBroadcast(intent)
     }
 
     private fun restartService() {
         isRunning = false
         watchdogThread?.interrupt()
-        
+
         stopSelf()
-        
-        val restartIntent = Intent(this, WatchdogService::class.java).apply {
-            action = ACTION_RESURRECT
-        }
-        
+
+        val restartIntent =
+            Intent(this, WatchdogService::class.java).apply {
+                action = ACTION_RESURRECT
+            }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(restartIntent)
         } else {
@@ -214,12 +221,13 @@ class WatchdogService : Service() {
             }
         }
 
-        val rootPackages = listOf(
-            "com.koushikdutta.superuser",
-            "eu.chainfire.supersu",
-            "com.noshufou.android.su",
-            "com.topjohnwu.magisk"
-        )
+        val rootPackages =
+            listOf(
+                "com.koushikdutta.superuser",
+                "eu.chainfire.supersu",
+                "com.noshufou.android.su",
+                "com.topjohnwu.magisk",
+            )
 
         val pm = packageManager
         for (pkg in rootPackages) {
@@ -239,18 +247,22 @@ class WatchdogService : Service() {
     }
 
     private fun detectUsbDebugging(): Boolean {
-        return android.provider.Settings.Global.getInt(contentResolver, 
-            android.provider.Settings.Global.ADB_ENABLED, 0) != 0
+        return android.provider.Settings.Global.getInt(
+            contentResolver,
+            android.provider.Settings.Global.ADB_ENABLED,
+            0,
+        ) != 0
     }
 
     private fun triggerTamperResponse(reason: String) {
         logSecurityEvent("TAMPER_DETECTED: $reason")
-        
+
         // Broadcast first so UI can update
-        val intent = Intent(ACTION_TAMPER_DETECTED).apply {
-            putExtra("reason", reason)
-            setPackage(packageName)
-        }
+        val intent =
+            Intent(ACTION_TAMPER_DETECTED).apply {
+                putExtra("reason", reason)
+                setPackage(packageName)
+            }
         sendBroadcast(intent)
 
         // Only purge if it's a critical hardware tamper in production
@@ -268,27 +280,29 @@ class WatchdogService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Sentinoid Watchdog",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Security monitoring service"
-                setShowBadge(false)
-            }
-            
+            val channel =
+                NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID,
+                    "Sentinoid Watchdog",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Security monitoring service"
+                    setShowBadge(false)
+                }
+
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager?.createNotificationChannel(channel)
         }
     }
 
     private fun createNotification(): Notification {
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent =
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE,
+            )
 
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle("Sentinoid Watchdog")
@@ -302,12 +316,13 @@ class WatchdogService : Service() {
 
     private fun acquireWakeLock() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            WAKELOCK_TAG
-        ).apply {
-            acquire(10 * 60 * 1000L)
-        }
+        wakeLock =
+            powerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                WAKELOCK_TAG,
+            ).apply {
+                acquire(10 * 60 * 1000L)
+            }
     }
 
     override fun onDestroy() {
@@ -317,8 +332,9 @@ class WatchdogService : Service() {
         heartbeatRunnable?.let { resurrectionHandler?.removeCallbacks(it) }
         try {
             if (wakeLock?.isHeld == true) wakeLock?.release()
-        } catch (e: Exception) {}
-        
+        } catch (e: Exception) {
+        }
+
         if (!isExplicitlyStopped()) {
             triggerResurrection()
         }
@@ -330,31 +346,37 @@ class WatchdogService : Service() {
 
     private fun triggerResurrection() {
         logSecurityEvent("WATCHDOG_DIED: triggering resurrection")
-        
-        val intent = Intent(this, WatchdogResurrectionReceiver::class.java).apply {
-            action = WatchdogResurrectionReceiver.ACTION_TRIGGER_RESURRECTION
-        }
+
+        val intent =
+            Intent(this, WatchdogResurrectionReceiver::class.java).apply {
+                action = WatchdogResurrectionReceiver.ACTION_TRIGGER_RESURRECTION
+            }
         sendBroadcast(intent)
-        
+
         scheduleResurrectionAlarm()
     }
 
     private fun scheduleResurrectionAlarm() {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-        val intent = Intent(this, WatchdogService::class.java).apply {
-            action = ACTION_RESURRECT
-        }
-        val pendingIntent = PendingIntent.getService(
-            this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        
+        val intent =
+            Intent(this, WatchdogService::class.java).apply {
+                action = ACTION_RESURRECT
+            }
+        val pendingIntent =
+            PendingIntent.getService(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+
         val triggerTime = System.currentTimeMillis() + 5000 // 5 second delay for stability
-        
+
         // Use non-exact alarm to avoid SecurityException on Android 12+
         alarmManager.setAndAllowWhileIdle(
             android.app.AlarmManager.RTC_WAKEUP,
             triggerTime,
-            pendingIntent
+            pendingIntent,
         )
     }
 }

@@ -11,7 +11,6 @@ import android.view.WindowManager
  * Essential for air-gapped security fortress.
  */
 class ScreenshotPrevention(private val context: Context) {
-
     companion object {
         private const val TAG = "ScreenshotPrevention"
         private const val PREFS_ENABLED = "screenshot_prevention_enabled"
@@ -60,7 +59,7 @@ class ScreenshotPrevention(private val context: Context) {
             // Hardware acceleration with secure context
             setFlags(
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             )
 
             // Android 12+ (API 31+) - blur content in recent apps
@@ -101,7 +100,10 @@ class ScreenshotPrevention(private val context: Context) {
      * Secure Activity base configuration
      * Apply to all sensitive activities
      */
-    fun configureSecureActivity(activity: Activity, strict: Boolean = false) {
+    fun configureSecureActivity(
+        activity: Activity,
+        strict: Boolean = false,
+    ) {
         if (strict) {
             applyStrictSecureFlags(activity)
         } else {
@@ -121,10 +123,11 @@ class ScreenshotPrevention(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             activity.setTaskDescription(
                 android.app.ActivityManager.TaskDescription(
-                    "Sentinoid", // App name only, no icon
+                    // App name only, no icon
+                    "Sentinoid",
                     null,
-                    android.graphics.Color.BLACK
-                )
+                    android.graphics.Color.BLACK,
+                ),
             )
         }
     }
@@ -169,7 +172,7 @@ class ScreenshotPrevention(private val context: Context) {
             flagSecure = true,
             recentsProtected = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP,
             tapJackingProtection = true,
-            blurBackground = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            blurBackground = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
         )
     }
 
@@ -178,7 +181,7 @@ class ScreenshotPrevention(private val context: Context) {
         val flagSecure: Boolean,
         val recentsProtected: Boolean,
         val tapJackingProtection: Boolean,
-        val blurBackground: Boolean
+        val blurBackground: Boolean,
     )
 }
 

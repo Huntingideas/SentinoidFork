@@ -2,13 +2,9 @@ package com.sentinoid.app.security
 
 import android.content.Context
 import android.util.Base64
-import com.sentinoid.app.security.CryptoManager
-import com.sentinoid.app.security.SecurePreferences
-import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.TimeUnit
 
 /**
  * Secure Audit Logging with Tamper-Proof Chain
@@ -18,9 +14,8 @@ import java.util.concurrent.TimeUnit
 class SecureAuditLogger(
     private val context: Context,
     private val cryptoManager: CryptoManager,
-    private val securePreferences: SecurePreferences
+    private val securePreferences: SecurePreferences,
 ) {
-
     companion object {
         private const val TAG = "SecureAuditLogger"
         private const val PREFS_LOG_COUNT = "audit_log_count"
@@ -61,7 +56,7 @@ class SecureAuditLogger(
         val details: String,
         val previousHash: String,
         val entryHash: String,
-        val signature: String
+        val signature: String,
     )
 
     data class AuditChainStatus(
@@ -70,14 +65,14 @@ class SecureAuditLogger(
         val isChainValid: Boolean,
         val firstEntryTime: Long?,
         val lastEntryTime: Long?,
-        val integrityStatus: IntegrityStatus
+        val integrityStatus: IntegrityStatus,
     )
 
     data class IntegrityStatus(
         val valid: Boolean,
         val brokenAt: Long?,
         val expectedHash: String?,
-        val actualHash: String?
+        val actualHash: String?,
     )
 
     private val memoryBuffer = ConcurrentLinkedQueue<LogEntry>()
@@ -112,20 +107,24 @@ class SecureAuditLogger(
     /**
      * Log a security event
      */
-    fun logEvent(eventType: String, details: String = ""): LogEntry? {
+    fun logEvent(
+        eventType: String,
+        details: String = "",
+    ): LogEntry? {
         return try {
             val timestamp = System.currentTimeMillis()
             val sequence = getNextSequence()
             val previousHash = securePreferences.getString(PREFS_LAST_HASH)!!
 
             // Create entry data for hashing
-            val entryData = buildString {
-                append(timestamp)
-                append(sequence)
-                append(eventType)
-                append(details)
-                append(previousHash)
-            }
+            val entryData =
+                buildString {
+                    append(timestamp)
+                    append(sequence)
+                    append(eventType)
+                    append(details)
+                    append(previousHash)
+                }
 
             // Calculate entry hash
             val entryHash = hashString(entryData)
@@ -133,15 +132,16 @@ class SecureAuditLogger(
             // Sign with device key
             val signature = signEntry(entryHash)
 
-            val entry = LogEntry(
-                timestamp = timestamp,
-                sequence = sequence,
-                eventType = eventType,
-                details = details,
-                previousHash = previousHash,
-                entryHash = entryHash,
-                signature = signature
-            )
+            val entry =
+                LogEntry(
+                    timestamp = timestamp,
+                    sequence = sequence,
+                    eventType = eventType,
+                    details = details,
+                    previousHash = previousHash,
+                    entryHash = entryHash,
+                    signature = signature,
+                )
 
             // Add to memory buffer
             memoryBuffer.offer(entry)
@@ -164,7 +164,11 @@ class SecureAuditLogger(
     /**
      * Log with automatic threat level
      */
-    fun logSecurityEvent(eventType: String, details: String, threatLevel: String) {
+    fun logSecurityEvent(
+        eventType: String,
+        details: String,
+        threatLevel: String,
+    ) {
         val fullDetails = "[$threatLevel] $details"
         logEvent(eventType, fullDetails)
     }
@@ -213,7 +217,8 @@ class SecureAuditLogger(
      * Serialize entry to string
      */
     private fun serializeEntry(entry: LogEntry): String {
-        return """${entry.timestamp}|${entry.sequence}|${entry.eventType}|${entry.details}|${entry.previousHash}|${entry.entryHash}|${entry.signature}"""
+        return """${entry.timestamp}|${entry.sequence}|${entry.eventType}|""" +
+            """${entry.details}|${entry.previousHash}|${entry.entryHash}|${entry.signature}"""
     }
 
     /**
@@ -229,7 +234,7 @@ class SecureAuditLogger(
                 details = parts[3],
                 previousHash = parts[4],
                 entryHash = parts[5],
-                signature = parts[6]
+                signature = parts[6],
             )
         } catch (e: Exception) {
             null
@@ -271,7 +276,7 @@ class SecureAuditLogger(
      */
     fun verifyChainIntegrity(): AuditChainStatus {
         val entries = retrieveAllEntries()
-        
+
         if (entries.isEmpty()) {
             return AuditChainStatus(
                 entryCount = 0,
@@ -279,7 +284,7 @@ class SecureAuditLogger(
                 isChainValid = true,
                 firstEntryTime = null,
                 lastEntryTime = null,
-                integrityStatus = IntegrityStatus(true, null, null, null)
+                integrityStatus = IntegrityStatus(true, null, null, null),
             )
         }
 
@@ -296,13 +301,14 @@ class SecureAuditLogger(
             val entry = sortedEntries[i]
 
             // Verify entry hash
-            val entryData = buildString {
-                append(entry.timestamp)
-                append(entry.sequence)
-                append(entry.eventType)
-                append(entry.details)
-                append(entry.previousHash)
-            }
+            val entryData =
+                buildString {
+                    append(entry.timestamp)
+                    append(entry.sequence)
+                    append(entry.eventType)
+                    append(entry.details)
+                    append(entry.previousHash)
+                }
             val calculatedHash = hashString(entryData)
 
             if (calculatedHash != entry.entryHash) {
@@ -342,12 +348,13 @@ class SecureAuditLogger(
             isChainValid = isValid,
             firstEntryTime = sortedEntries.first().timestamp,
             lastEntryTime = sortedEntries.last().timestamp,
-            integrityStatus = IntegrityStatus(
-                valid = isValid,
-                brokenAt = brokenAt,
-                expectedHash = expectedHash,
-                actualHash = actualHash
-            )
+            integrityStatus =
+                IntegrityStatus(
+                    valid = isValid,
+                    brokenAt = brokenAt,
+                    expectedHash = expectedHash,
+                    actualHash = actualHash,
+                ),
         )
     }
 
@@ -392,7 +399,10 @@ class SecureAuditLogger(
     /**
      * Get entries in time range
      */
-    fun getEntriesInRange(startTime: Long, endTime: Long): List<LogEntry> {
+    fun getEntriesInRange(
+        startTime: Long,
+        endTime: Long,
+    ): List<LogEntry> {
         return retrieveAllEntries().filter {
             it.timestamp in startTime..endTime
         }
@@ -473,9 +483,16 @@ class SecureAuditLogger(
             firstEventTime = entries.minOfOrNull { it.timestamp },
             lastEventTime = entries.maxOfOrNull { it.timestamp },
             chainValid = chainStatus.isChainValid,
-            threatEvents = entries.count { it.eventType in listOf(
-                EVENT_DEBUG_DETECTED, EVENT_ROOT_DETECTED, EVENT_HONEYPOT_TRIGGERED, EVENT_SUSPICIOUS_ACTIVITY
-            )}
+            threatEvents =
+                entries.count {
+                    it.eventType in
+                        listOf(
+                            EVENT_DEBUG_DETECTED,
+                            EVENT_ROOT_DETECTED,
+                            EVENT_HONEYPOT_TRIGGERED,
+                            EVENT_SUSPICIOUS_ACTIVITY,
+                        )
+                },
         )
     }
 
@@ -485,6 +502,6 @@ class SecureAuditLogger(
         val firstEventTime: Long?,
         val lastEventTime: Long?,
         val chainValid: Boolean,
-        val threatEvents: Int
+        val threatEvents: Int,
     )
 }

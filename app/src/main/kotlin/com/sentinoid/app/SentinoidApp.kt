@@ -6,7 +6,6 @@ import com.sentinoid.app.security.CryptoManager
 import com.sentinoid.app.security.SecurePreferences
 
 class SentinoidApp : Application() {
-
     companion object {
         lateinit var instance: SentinoidApp
             private set
