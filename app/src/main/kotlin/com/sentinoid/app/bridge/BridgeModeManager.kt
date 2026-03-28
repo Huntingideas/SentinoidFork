@@ -12,6 +12,7 @@ import android.os.Build
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
 import com.hoho.android.usbserial.util.SerialInputOutputManager
+import com.sentinoid.app.security.ActivityLogger
 import com.sentinoid.app.security.CryptoManager
 import com.sentinoid.app.security.SecurePreferences
 import kotlinx.coroutines.CoroutineScope
@@ -45,6 +46,7 @@ class BridgeModeManager(private val context: Context) {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val executor = Executors.newSingleThreadExecutor()
+    private val activityLogger by lazy { ActivityLogger.getInstance(context) }
 
     private var usbConnection: UsbDeviceConnection? = null
     private var serialPort: UsbSerialPort? = null

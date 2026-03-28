@@ -3,6 +3,7 @@ package com.sentinoid.app.atmosphere
 import android.content.Context
 import com.sentinoid.app.hardware.HardwareAbstractionLayer
 import com.sentinoid.app.mobilea.MobileAModule
+import com.sentinoid.app.security.ActivityLogger
 import com.sentinoid.app.ultra.UltraModule
 
 /**
@@ -12,6 +13,7 @@ import com.sentinoid.app.ultra.UltraModule
  */
 class AtmosphereManager(private val context: Context) {
     private val hal = HardwareAbstractionLayer(context)
+    private val activityLogger by lazy { ActivityLogger.getInstance(context) }
     private var ultraModule: UltraModule? = null
     private var mobileAModule: MobileAModule? = null
 

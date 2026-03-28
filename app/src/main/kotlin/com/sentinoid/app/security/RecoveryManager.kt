@@ -18,6 +18,7 @@ class RecoveryManager(
 
     private val bip39Provider = BIP39Provider()
     private val shamir = ShamirSecretSharing()
+    private val activityLogger by lazy { ActivityLogger.getInstance(cryptoManager.getContext()) }
 
     data class RecoverySetup(
         val mnemonicWords: List<String>,
