@@ -74,11 +74,13 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.biometric)
     implementation(libs.tensorflow.lite)
     implementation(libs.tensorflow.lite.support)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.bip39)
+    implementation(libs.material)
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

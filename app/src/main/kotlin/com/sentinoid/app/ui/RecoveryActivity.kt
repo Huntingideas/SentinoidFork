@@ -2,6 +2,7 @@ package com.sentinoid.app.ui
 
 import android.content.Context
 import android.os.Bundle
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,6 +10,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -20,10 +23,15 @@ import com.sentinoid.app.security.RecoveryManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.security.KeyStoreException
+import java.util.concurrent.Executor
 
 class RecoveryActivity : AppCompatActivity() {
 
     private lateinit var recoveryManager: RecoveryManager
+    private lateinit var executor: Executor
+    private lateinit var biometricPrompt: BiometricPrompt
+    private lateinit var promptInfo: BiometricPrompt.PromptInfo
     private lateinit var tvStatus: TextView
     private lateinit var recyclerShards: RecyclerView
     private lateinit var btnSetup: MaterialButton
@@ -32,6 +40,8 @@ class RecoveryActivity : AppCompatActivity() {
     private lateinit var shardAdapter: ShardAdapter
 
     private var currentShards: List<String> = emptyList()
+    private var pendingShardsForRecovery: List<String>? = null
+    private var pendingWordsForRecovery: List<String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,8 +50,66 @@ class RecoveryActivity : AppCompatActivity() {
         val app = application as SentinoidApp
         recoveryManager = RecoveryManager(app.cryptoManager, app.securePreferences)
 
+        executor = ContextCompat.getMainExecutor(this)
+        setupBiometricAuth()
         setupUI()
         updateUI()
+    }
+
+    private fun setupBiometricAuth() {
+        biometricPrompt = BiometricPrompt(this, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    // Retry the pending operation after successful authentication
+                    pendingShardsForRecovery?.let { shards ->
+                        performShardRecovery(shards)
+                        pendingShardsForRecovery = null
+                    }
+                    pendingWordsForRecovery?.let { words ->
+                        performMnemonicRecovery(words)
+                        pendingWordsForRecovery = null
+                    }
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                    Toast.makeText(this@RecoveryActivity, 
+                        "Authentication failed", Toast.LENGTH_SHORT).show()
+                    pendingShardsForRecovery = null
+                    pendingWordsForRecovery = null
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    Toast.makeText(this@RecoveryActivity, 
+                        "Authentication error: $errString", Toast.LENGTH_LONG).show()
+                    pendingShardsForRecovery = null
+                    pendingWordsForRecovery = null
+                }
+            })
+
+        promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Sentinoid Recovery")
+            .setSubtitle("Authenticate to access recovery functions")
+            .setNegativeButtonText("Cancel")
+            .setConfirmationRequired(true)
+            .build()
+    }
+
+    private fun authenticateAndExecute(operation: () -> Unit) {
+        try {
+            operation()
+        } catch (e: Exception) {
+            when (e) {
+                is android.security.keystore.UserNotAuthenticatedException,
+                is KeyPermanentlyInvalidatedException,
+                is KeyStoreException -> {
+                    biometricPrompt.authenticate(promptInfo)
+                }
+                else -> throw e
+            }
+        }
     }
 
     private fun setupUI() {
@@ -75,18 +143,24 @@ class RecoveryActivity : AppCompatActivity() {
     }
 
     private fun loadShards() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val shards = (1..3).mapNotNull { index ->
-                recoveryManager.getStoredShard(index)
-            }
-            
-            withContext(Dispatchers.Main) {
-                currentShards = shards
-                shardAdapter.submitList(shards)
+        authenticateAndExecute {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val shards = try {
+                    (1..3).mapNotNull { index ->
+                        recoveryManager.getStoredShard(index)
+                    }
+                } catch (e: Exception) {
+                    emptyList<String>()
+                }
                 
-                // Show empty state message if no shards
-                if (shards.isEmpty() && recoveryManager.isRecoverySetup()) {
-                    tvStatus.text = "Shards encrypted - tap 'Setup Recovery' to view"
+                withContext(Dispatchers.Main) {
+                    currentShards = shards
+                    shardAdapter.submitList(shards)
+                    
+                    // Show empty state message if no shards
+                    if (shards.isEmpty() && recoveryManager.isRecoverySetup()) {
+                        tvStatus.text = "Shards encrypted - authenticate to view"
+                    }
                 }
             }
         }
@@ -105,18 +179,20 @@ class RecoveryActivity : AppCompatActivity() {
     }
 
     private fun performSetup() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val setup = recoveryManager.setupRecovery()
-                
-                withContext(Dispatchers.Main) {
-                    showSetupResults(setup.mnemonicWords, setup.shardStrings)
-                    updateUI()
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@RecoveryActivity, 
-                        "Setup failed: ${e.message}", Toast.LENGTH_LONG).show()
+        authenticateAndExecute {
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val setup = recoveryManager.setupRecovery()
+                    
+                    withContext(Dispatchers.Main) {
+                        showSetupResults(setup.mnemonicWords, setup.shardStrings)
+                        updateUI()
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@RecoveryActivity, 
+                            "Setup failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         }

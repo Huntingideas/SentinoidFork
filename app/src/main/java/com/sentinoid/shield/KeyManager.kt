@@ -8,8 +8,6 @@ import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.KeyGenerator
-import cash.z.ecc.android.bip39.Mnemonics
-import cash.z.ecc.android.bip39.toSeed
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 

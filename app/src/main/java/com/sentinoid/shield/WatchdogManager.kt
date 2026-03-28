@@ -5,27 +5,6 @@ import android.util.Log
 
 /**
  * Security orchestration manager that coordinates all security checks.
- *
- * Responsibilities:
- * - Coordinate malware scanning via MalwareEngine
- * - Provide unified interface for security checks
- * - Manage risk thresholds and alerts
- *
- * This class acts as the orchestrator between the UI/Service layer
- * and the core detection engine (MalwareEngine).
- *
- * Architecture:
- *   WatchdogService → WatchdogManager → MalwareEngine
- *                                    ↑
- *                              (malware_model.tflite)
- *
- * Design Rationale:
- * - WatchdogManager is lightweight - delegates to MalwareEngine singleton
- * - Single model load in memory (MalwareEngine handles this)
- * - Central point for security coordination
- *
- * @see MalwareEngine
- * @see WatchdogService
  */
 class WatchdogManager(context: Context) {
 
@@ -35,14 +14,7 @@ class WatchdogManager(context: Context) {
         private const val DEFAULT_MEDIUM_RISK_THRESHOLD = 0.3f
     }
 
-    // Use singleton to prevent duplicate model loading
-    // TODO: Add callback system for UI updates when threats detected
-    // TODO: Implement notification system for security alerts
-    // TODO: Add background scheduling for periodic scans
     private val malwareEngine: MalwareEngine = MalwareEngine.getInstance(context)
-
-    // TODO: Integrate with SecurityModule for unified alert system
-    // TODO: Add support for custom threat thresholds per app
 
     /**
      * Scan all installed apps and return high-risk ones.
@@ -95,24 +67,9 @@ class WatchdogManager(context: Context) {
     }
 
     /**
-     * Legacy method for backward compatibility.
-     * @deprecated Use isThreatDetected(packageName) instead
-     *
-     * @param input Feature array (deprecated)
-     * @return True if risk score > 0.5
-     */
-    @Deprecated("Use isThreatDetected(packageName) instead", ReplaceWith("isThreatDetected(packageName)"))
-    fun isThreatDetected(input: FloatArray): Boolean {
-        val riskScore = malwareEngine.analyzeApp(input)
-        return riskScore > 0.5f
-    }
-
-    /**
      * Release resources.
      */
     fun close() {
-        // Note: We don't close MalwareEngine here as it's a singleton
-        // It will be closed when app terminates or explicitly via MalwareEngine.close()
         Log.d(TAG, "WatchdogManager closed")
     }
 }

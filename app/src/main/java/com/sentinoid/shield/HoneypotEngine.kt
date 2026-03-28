@@ -1,11 +1,9 @@
 package com.sentinoid.shield
 
-import android.app.job.JobInfo
 import android.app.job.JobParameters
-import android.app.job.JobScheduler
 import android.app.job.JobService
-import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.os.FileObserver
 import android.os.Handler
 import android.os.HandlerThread
@@ -16,39 +14,60 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Battery-optimized Honeypot using FileObserver with adaptive monitoring.
- * Uses background thread with low-priority scheduling to minimize CPU wakeups.
  */
 class HoneypotEngine : JobService() {
     private var observer: AdaptiveFileObserver? = null
-    private val handlerThread = HandlerThread("HoneypotThread", android.os.Process.THREAD_PRIORITY_BACKGROUND)
+    private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
     private val isMonitoring = AtomicBoolean(false)
     private var lastTriggerTime = 0L
-    private val TRIGGER_COOLDOWN_MS = 30000 // 30 seconds between triggers
+    private val TRIGGER_COOLDOWN_MS = 30000L // 30 seconds between triggers
 
     companion object {
         private const val TAG = "HoneypotEngine"
         private const val JOB_ID_HONEYPOT = 1002
+    }
+
+    override fun onStartJob(params: JobParameters?): Boolean {
+        startMonitoring()
+        return true // Keep the service running
+    }
+
+    override fun onStopJob(params: JobParameters?): Boolean {
+        stopMonitoring()
+        return true // Reschedule if needed
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        observer?.stopWatching()
+        startMonitoring()
+        return START_STICKY
+    }
+
+    private fun startMonitoring() {
+        if (isMonitoring.getAndSet(true)) return
+
+        handlerThread = HandlerThread("HoneypotThread", android.os.Process.THREAD_PRIORITY_BACKGROUND).apply {
+            start()
+            handler = Handler(looper)
+        }
 
         val honeypotDir = createHoneypotDirectory()
-        if (honeypotDir != null) {
-            observer = object : FileObserver(honeypotDir.path, OPEN) {
-                override fun onEvent(event: Int, path: String?) {
-                    if (event == OPEN && path == "vault_keys.txt") {
-                        Log.d("HoneypotEngine", "HONEYPOT TRIPPED! File accessed: $path")
-                        SilentAlarmManager.triggerLockdown(applicationContext)
-                    }
-                }
-            }
+        if (honeypotDir != null && handler != null) {
+            observer = AdaptiveFileObserver(honeypotDir.path, handler!!)
             observer?.startWatching()
-            isMonitoring.set(true)
             Log.d(TAG, "Adaptive honeypot monitoring started at ${honeypotDir.path}")
         }
-        return START_STICKY
+    }
 
+    private fun stopMonitoring() {
+        if (!isMonitoring.getAndSet(false)) return
+
+        observer?.stopWatching()
+        observer = null
+        handlerThread?.quitSafely()
+        handlerThread = null
+        handler = null
+        Log.d(TAG, "Honeypot monitoring stopped")
     }
 
     private fun createHoneypotDirectory(): File? {
@@ -58,14 +77,14 @@ class HoneypotEngine : JobService() {
             if (!trapDir.exists()) {
                 trapDir.mkdirs()
             }
-            File(
-                trapDir,
-                "vault_keys.txt"
-            ).writeText("This is a honeypot. Accessing this file has triggered a silent alarm.")
+            File(trapDir, "vault_keys.txt").apply {
+                if (!exists()) {
+                    writeText("This is a honeypot. Accessing this file has triggered a silent alarm.")
+                }
+            }
             return trapDir
         }
-        
-        return trapDir
+        return null
     }
 
     private fun onHoneypotTripped(path: String?) {
@@ -78,7 +97,6 @@ class HoneypotEngine : JobService() {
         
         Log.e(TAG, "HONEYPOT TRIPPED! File accessed: $path")
         
-        // Only trigger lockdown if not in power save mode
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         if (!powerManager.isPowerSaveMode) {
             SilentAlarmManager.triggerLockdown(applicationContext)
@@ -92,9 +110,6 @@ class HoneypotEngine : JobService() {
         stopMonitoring()
     }
 
-    /**
-     * Adaptive file observer that reduces monitoring intensity during low power.
-     */
     private inner class AdaptiveFileObserver(path: String, private val handler: Handler) : 
         FileObserver(path, OPEN or ACCESS or MODIFY) {
         
@@ -104,7 +119,6 @@ class HoneypotEngine : JobService() {
         override fun onEvent(event: Int, path: String?) {
             eventCount++
             
-            // Adaptive throttling - increase delay as events pile up
             if (eventCount > 10) {
                 adaptiveDelay = 100
             }
@@ -117,12 +131,8 @@ class HoneypotEngine : JobService() {
         }
         
         private fun processEvent(event: Int, path: String?) {
-            when (event) {
-                OPEN, ACCESS -> {
-                    if (path != null) {
-                        onHoneypotTripped(path)
-                    }
-                }
+            if (path == "vault_keys.txt") {
+                onHoneypotTripped(path)
             }
         }
     }
