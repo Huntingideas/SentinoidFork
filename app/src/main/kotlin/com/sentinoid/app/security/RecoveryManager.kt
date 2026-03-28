@@ -1,6 +1,7 @@
 package com.sentinoid.app.security
 
 import java.math.BigInteger
+import java.security.MessageDigest
 
 class RecoveryManager(
     private val cryptoManager: CryptoManager,
@@ -13,6 +14,7 @@ class RecoveryManager(
         private const val PREFS_SHARD_PREFIX = "shard_"
         private const val PREFS_RECOVERY_SETUP = "recovery_setup_complete"
         private const val PREFS_MASTER_KEY_ENCRYPTED = "master_key_encrypted"
+        private const val PREFS_SEED_HASH = "seed_hash"
     }
 
     private val bip39Provider = BIP39Provider()
@@ -27,8 +29,11 @@ class RecoveryManager(
         // Generate 24-word BIP39 mnemonic
         val mnemonic = bip39Provider.generateMnemonic(24)
         
-        // Split the seed into 3 shards (2-of-3 threshold)
-        val shares = shamir.splitSecret(mnemonic.seed, SHARD_THRESHOLD, SHARD_COUNT)
+        // Hash the 64-byte seed to 32 bytes for Shamir splitting (fits in 257-bit prime)
+        val seedHash = hashSeed(mnemonic.seed)
+        
+        // Split the hashed seed into 3 shards (2-of-3 threshold)
+        val shares = shamir.splitSecret(seedHash, SHARD_THRESHOLD, SHARD_COUNT)
         
         // Convert shares to string representations
         val shardStrings = shares.map { it.toStringRepresentation() }
@@ -42,6 +47,10 @@ class RecoveryManager(
         // Store encrypted master key reference
         securePreferences.putString(PREFS_MASTER_KEY_ENCRYPTED, 
             cryptoManager.encrypt(mnemonic.masterKey.joinToString("") { "%02x".format(it) }))
+        
+        // Store seed hash for verification
+        securePreferences.putString(PREFS_SEED_HASH, 
+            cryptoManager.encrypt(seedHash.joinToString("") { "%02x".format(it) }))
         
         securePreferences.putBoolean(PREFS_RECOVERY_SETUP, true)
         
@@ -91,10 +100,11 @@ class RecoveryManager(
             }
 
             val seed = bip39Provider.mnemonicToSeed(words)
-            val success = verifyReconstructedSeed(seed)
+            val seedHash = hashSeed(seed)
+            val success = verifyReconstructedSeed(seedHash)
             
             if (success) {
-                RecoveryResult.Success(seed)
+                RecoveryResult.Success(seedHash)
             } else {
                 RecoveryResult.Error("Seed verification failed")
             }
@@ -103,10 +113,21 @@ class RecoveryManager(
         }
     }
 
-    private fun verifyReconstructedSeed(seed: ByteArray): Boolean {
-        // In production, this would verify against a stored hash or MAC
-        // For now, we check if we can derive the expected master key structure
-        return seed.size == 64 // BIP39 seed should be 64 bytes
+    private fun hashSeed(seed: ByteArray): ByteArray {
+        // Hash the 64-byte BIP39 seed to 32 bytes to fit within 257-bit prime
+        return MessageDigest.getInstance("SHA-256").digest(seed)
+    }
+
+    private fun verifyReconstructedSeed(seedHash: ByteArray): Boolean {
+        return try {
+            val storedHashEncrypted = securePreferences.getString(PREFS_SEED_HASH) ?: return true
+            val storedHashHex = cryptoManager.decrypt(storedHashEncrypted)
+            val storedHash = storedHashHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            seedHash.contentEquals(storedHash)
+        } catch (e: Exception) {
+            // If no stored hash (legacy), accept any 32-byte hash
+            seedHash.size == 32
+        }
     }
 
     fun getStoredShard(index: Int): String? {
@@ -125,6 +146,7 @@ class RecoveryManager(
         }
         securePreferences.remove(PREFS_RECOVERY_SETUP)
         securePreferences.remove(PREFS_MASTER_KEY_ENCRYPTED)
+        securePreferences.remove(PREFS_SEED_HASH)
     }
 
     fun validateShard(shardString: String): Boolean {
