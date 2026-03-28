@@ -15,7 +15,6 @@ import java.security.SecureRandom
  * - NPU/Accelerator task delegation
  */
 class UltraModule(private val context: Context) {
-
     companion object {
         private const val TAG = "UltraModule"
         private const val SEV_PATH = "/sys/sev"
@@ -34,21 +33,21 @@ class UltraModule(private val context: Context) {
         val enabled: Boolean,
         val mode: Int,
         val guestCount: Int,
-        val platformState: String
+        val platformState: String,
     )
 
     data class AcceleratorStatus(
         val available: Boolean,
         val devicePath: String?,
         val capabilities: List<String>,
-        val loadPercentage: Int
+        val loadPercentage: Int,
     )
 
     data class JammingStatus(
         val active: Boolean,
         val pattern: String,
         val intensity: Float,
-        val targets: List<String>
+        val targets: List<String>,
     )
 
     // -------------------------------------------------------------------------
@@ -203,7 +202,10 @@ class UltraModule(private val context: Context) {
         }
     }
 
-    fun offloadTask(taskType: String, data: ByteArray): OffloadResult {
+    fun offloadTask(
+        taskType: String,
+        data: ByteArray,
+    ): OffloadResult {
         val accelStatus = getAcceleratorStatus()
 
         if (!accelStatus.available) {
@@ -217,12 +219,13 @@ class UltraModule(private val context: Context) {
             val startTime = System.nanoTime()
 
             // Process on accelerator
-            val result = when (taskType) {
-                "crypto_verify" -> performAcceleratedCryptoVerify(data)
-                "hash_compute" -> performAcceleratedHash(data)
-                "pattern_detect" -> performAcceleratedPatternDetection(data)
-                else -> performGenericOffload(data)
-            }
+            val result =
+                when (taskType) {
+                    "crypto_verify" -> performAcceleratedCryptoVerify(data)
+                    "hash_compute" -> performAcceleratedHash(data)
+                    "pattern_detect" -> performAcceleratedPatternDetection(data)
+                    else -> performGenericOffload(data)
+                }
 
             val endTime = System.nanoTime()
             val durationMs = (endTime - startTime) / 1_000_000
@@ -231,7 +234,7 @@ class UltraModule(private val context: Context) {
                 data = result,
                 processingTimeMs = durationMs,
                 acceleratorUsed = true,
-                devicePath = accelStatus.devicePath
+                devicePath = accelStatus.devicePath,
             )
         } catch (e: Exception) {
             OffloadResult.Failure("Offload failed: ${e.message}")
@@ -287,7 +290,7 @@ class UltraModule(private val context: Context) {
             active = active,
             pattern = pattern,
             intensity = if (active) 0.8f else 0f,
-            targets = if (active) listOf("EM", "acoustic", "timing") else emptyList()
+            targets = if (active) listOf("EM", "acoustic", "timing") else emptyList(),
         )
     }
 
@@ -309,7 +312,6 @@ class UltraModule(private val context: Context) {
             repeat(100) {
                 cryptoManager.hashData(noise.copyOfRange(0, (random.nextInt(512) + 512)))
             }
-
         } catch (e: Exception) {
             // Silent fail - jamming is non-critical
         }
@@ -330,7 +332,7 @@ class UltraModule(private val context: Context) {
             val data: ByteArray,
             val processingTimeMs: Long,
             val acceleratorUsed: Boolean,
-            val devicePath: String?
+            val devicePath: String?,
         ) : OffloadResult()
 
         data class Failure(val message: String) : OffloadResult()

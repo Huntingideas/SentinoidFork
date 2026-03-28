@@ -115,6 +115,7 @@
 -dontwarn javax.security.**
 -dontwarn java.awt.**
 -dontwarn java.beans.**
+-dontwarn javax.annotation.**
 
 # Skip unnecessary processing
 -dontnote **

@@ -12,7 +12,13 @@ import android.hardware.usb.UsbManager
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.FileDescriptor
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -22,10 +28,10 @@ class AoaService : Service() {
         private const val TAG = "AoaService"
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "sentinoid_aoa_channel"
-        
+
         const val ACTION_START = "com.sentinoid.shield.START_AOA"
         const val ACTION_STOP = "com.sentinoid.shield.STOP_AOA"
-        
+
         private const val AOA_MANUFACTURER = "Sentinoid"
         private const val AOA_MODEL = "SecurityShield"
         private const val AOA_VERSION = "1.0"
@@ -38,7 +44,7 @@ class AoaService : Service() {
     private var parcelFileDescriptor: ParcelFileDescriptor? = null
     private var inputStream: FileInputStream? = null
     private var outputStream: FileOutputStream? = null
-    
+
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isRunning = false
 
@@ -48,7 +54,11 @@ class AoaService : Service() {
         createNotificationChannel()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         when (intent?.action) {
             ACTION_START -> startAoaService()
             ACTION_STOP -> stopAoaService()
@@ -60,13 +70,14 @@ class AoaService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Sentinoid USB Service",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Maintains USB connection to PC for log analysis"
-            }
+            val channel =
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "Sentinoid USB Service",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Maintains USB connection to PC for log analysis"
+                }
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }
@@ -74,22 +85,22 @@ class AoaService : Service() {
 
     private fun startAoaService() {
         if (isRunning) return
-        
+
         val notification = createNotification("Connecting to PC...")
         startForeground(NOTIFICATION_ID, notification)
-        
+
         isRunning = true
         serviceScope.launch {
             connectToAccessory()
         }
-        
+
         Log.i(TAG, "AOA Service started")
     }
 
     private fun stopAoaService() {
         isRunning = false
         serviceScope.cancel()
-        
+
         try {
             inputStream?.close()
             outputStream?.close()
@@ -97,19 +108,20 @@ class AoaService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "Error closing streams", e)
         }
-        
+
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         Log.i(TAG, "AOA Service stopped")
     }
 
     private fun createNotification(message: String): Notification {
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent =
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE,
+            )
 
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("Sentinoid Active")
@@ -120,38 +132,39 @@ class AoaService : Service() {
             .build()
     }
 
-    private suspend fun connectToAccessory() = withContext(Dispatchers.IO) {
-        while (isRunning) {
-            try {
-                val accessoryList = usbManager?.accessoryList
-                if (accessoryList != null && accessoryList.isNotEmpty()) {
-                    accessory = accessoryList[0]
-                    
-                    if (usbManager?.hasPermission(accessory) == true) {
-                        openAccessory(accessory!!)
-                        return@withContext
+    private suspend fun connectToAccessory() =
+        withContext(Dispatchers.IO) {
+            while (isRunning) {
+                try {
+                    val accessoryList = usbManager?.accessoryList
+                    if (accessoryList != null && accessoryList.isNotEmpty()) {
+                        accessory = accessoryList[0]
+
+                        if (usbManager?.hasPermission(accessory) == true) {
+                            openAccessory(accessory!!)
+                            return@withContext
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error checking accessories", e)
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error checking accessories", e)
+
+                delay(1000)
             }
-            
-            delay(1000)
         }
-    }
 
     private fun openAccessory(acc: UsbAccessory) {
         try {
             parcelFileDescriptor = usbManager?.openAccessory(acc)
-            
+
             if (parcelFileDescriptor != null) {
                 val fileDescriptor: FileDescriptor = parcelFileDescriptor!!.fileDescriptor
                 inputStream = FileInputStream(fileDescriptor)
                 outputStream = FileOutputStream(fileDescriptor)
-                
+
                 updateNotification("Connected - streaming logs")
                 startLogStreaming()
-                
+
                 Log.i(TAG, "Accessory opened successfully")
             }
         } catch (e: Exception) {
@@ -162,7 +175,7 @@ class AoaService : Service() {
     private fun startLogStreaming() {
         serviceScope.launch {
             val buffer = ByteArray(16384)
-            
+
             while (isRunning) {
                 try {
                     val length = inputStream?.read(buffer) ?: -1
@@ -183,7 +196,7 @@ class AoaService : Service() {
     private fun onDataReceived(data: ByteArray) {
         val message = String(data, Charsets.UTF_8)
         Log.d(TAG, "Received: $message")
-        
+
         when {
             message.startsWith("PING") -> sendData("PONG")
             message.startsWith("STATUS") -> sendData("OK")

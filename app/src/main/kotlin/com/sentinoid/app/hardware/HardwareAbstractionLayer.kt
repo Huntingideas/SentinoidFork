@@ -12,11 +12,10 @@ import java.io.File
  * - MOBILE-A: Samsung S26 with AMD accelerator
  */
 class HardwareAbstractionLayer(private val context: Context) {
-
     enum class Atmosphere {
-        LITE,      // Universal Android/ARM
-        ULTRA,     // AMD PC (High-performance)
-        MOBILE_A   // Samsung S26 + AMD accelerator
+        LITE, // Universal Android/ARM
+        ULTRA, // AMD PC (High-performance)
+        MOBILE_A, // Samsung S26 + AMD accelerator
     }
 
     data class HardwareCapabilities(
@@ -27,7 +26,7 @@ class HardwareAbstractionLayer(private val context: Context) {
         val hasRdna: Boolean,
         val isSamsungS26: Boolean,
         val supportsSideChannelJamming: Boolean,
-        val supportsGaitLock: Boolean
+        val supportsGaitLock: Boolean,
     )
 
     companion object {
@@ -64,28 +63,28 @@ class HardwareAbstractionLayer(private val context: Context) {
             hasRdna = detectRdnaSupport(),
             isSamsungS26 = isSamsungS26(),
             supportsSideChannelJamming = atmosphere == Atmosphere.ULTRA || atmosphere == Atmosphere.MOBILE_A,
-            supportsGaitLock = atmosphere == Atmosphere.MOBILE_A
+            supportsGaitLock = atmosphere == Atmosphere.MOBILE_A,
         )
     }
 
     private fun detectUltra(): Boolean {
         // ULTRA: AMD PC with SEV-SNP support
         return hasAmdProcessor() &&
-               !isAndroidDevice() &&
-               detectSevSnpSupport()
+            !isAndroidDevice() &&
+            detectSevSnpSupport()
     }
 
     private fun detectMobileA(): Boolean {
         // MOBILE-A: Samsung S26 with AMD accelerator
         return isSamsungS26() &&
-               hasAmdAccelerator()
+            hasAmdAccelerator()
     }
 
     private fun hasAmdProcessor(): Boolean {
         return try {
             val cpuInfo = File(PROC_CPUINFO).readText()
             cpuInfo.contains(AMD_VENDOR_ID, ignoreCase = true) ||
-            cpuInfo.contains(AMD_VENDOR_ID_ALT, ignoreCase = true)
+                cpuInfo.contains(AMD_VENDOR_ID_ALT, ignoreCase = true)
         } catch (e: Exception) {
             false
         }
@@ -122,12 +121,12 @@ class HardwareAbstractionLayer(private val context: Context) {
                 drmPath.listFiles()?.any { file ->
                     val vendor = File(file, "vendor").readTextOrNull()
                     vendor?.contains("AMD", ignoreCase = true) == true ||
-                    vendor?.contains("1002", ignoreCase = true) == true // AMD PCI vendor ID
+                        vendor?.contains("1002", ignoreCase = true) == true // AMD PCI vendor ID
                 } ?: false
             } else {
                 // Check for AMD mobile GPU in properties
                 Build.HARDWARE.contains("qcom", ignoreCase = true) &&
-                hasAmdProcessor()
+                    hasAmdProcessor()
             }
         } catch (e: Exception) {
             false
@@ -156,12 +155,13 @@ class HardwareAbstractionLayer(private val context: Context) {
     private fun detectRdnaSupport(): Boolean {
         // Check for RDNA GPU architecture
         return try {
-            val gpuInfo = File("/sys/class/kgsl/kgsl-3d0/gpu_model").readTextOrNull()
-                ?: File("/sys/class/misc/mali0/device/utgard_clock").readTextOrNull()
-                ?: ""
+            val gpuInfo =
+                File("/sys/class/kgsl/kgsl-3d0/gpu_model").readTextOrNull()
+                    ?: File("/sys/class/misc/mali0/device/utgard_clock").readTextOrNull()
+                    ?: ""
 
             gpuInfo.contains("RDNA", ignoreCase = true) ||
-            gpuInfo.contains("Adreno", ignoreCase = true)
+                gpuInfo.contains("Adreno", ignoreCase = true)
         } catch (e: Exception) {
             false
         }

@@ -19,7 +19,6 @@ import java.io.File
  * Background security monitoring service.
  */
 class WatchdogService : Service() {
-
     companion object {
         private const val TAG = "WatchdogService"
         private const val LOW_BATTERY_THRESHOLD = 15
@@ -34,7 +33,11 @@ class WatchdogService : Service() {
         Log.d(TAG, "WatchdogService created")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         Log.d(TAG, "Hardware Watchdog is active.")
 
         if (isDeviceRooted()) {
@@ -71,17 +74,18 @@ class WatchdogService : Service() {
     }
 
     private fun isDeviceRooted(): Boolean {
-        val paths = arrayOf(
-            "/system/app/Superuser.apk",
-            "/sbin/su",
-            "/system/bin/su",
-            "/system/xbin/su",
-            "/data/local/xbin/su",
-            "/data/local/bin/su",
-            "/system/sd/xbin/su",
-            "/system/bin/failsafe/su",
-            "/data/local/su"
-        )
+        val paths =
+            arrayOf(
+                "/system/app/Superuser.apk",
+                "/sbin/su",
+                "/system/bin/su",
+                "/system/xbin/su",
+                "/data/local/xbin/su",
+                "/data/local/bin/su",
+                "/system/sd/xbin/su",
+                "/system/bin/failsafe/su",
+                "/data/local/su",
+            )
         return paths.any { File(it).exists() }
     }
 

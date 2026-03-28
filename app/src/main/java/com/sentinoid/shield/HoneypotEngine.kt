@@ -21,7 +21,7 @@ class HoneypotEngine : JobService() {
     private var handler: Handler? = null
     private val isMonitoring = AtomicBoolean(false)
     private var lastTriggerTime = 0L
-    private val TRIGGER_COOLDOWN_MS = 30000L // 30 seconds between triggers
+    private val triggerCooldownMs = 30000L // 30 seconds between triggers
 
     companion object {
         private const val TAG = "HoneypotEngine"
@@ -38,7 +38,11 @@ class HoneypotEngine : JobService() {
         return true // Reschedule if needed
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         startMonitoring()
         return START_STICKY
     }
@@ -46,10 +50,11 @@ class HoneypotEngine : JobService() {
     private fun startMonitoring() {
         if (isMonitoring.getAndSet(true)) return
 
-        handlerThread = HandlerThread("HoneypotThread", android.os.Process.THREAD_PRIORITY_BACKGROUND).apply {
-            start()
-            handler = Handler(looper)
-        }
+        handlerThread =
+            HandlerThread("HoneypotThread", android.os.Process.THREAD_PRIORITY_BACKGROUND).apply {
+                start()
+                handler = Handler(looper)
+            }
 
         val honeypotDir = createHoneypotDirectory()
         if (honeypotDir != null && handler != null) {
@@ -89,14 +94,14 @@ class HoneypotEngine : JobService() {
 
     private fun onHoneypotTripped(path: String?) {
         val now = System.currentTimeMillis()
-        if (now - lastTriggerTime < TRIGGER_COOLDOWN_MS) {
+        if (now - lastTriggerTime < triggerCooldownMs) {
             Log.d(TAG, "Honeypot trigger throttled")
             return
         }
         lastTriggerTime = now
-        
+
         Log.e(TAG, "HONEYPOT TRIPPED! File accessed: $path")
-        
+
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         if (!powerManager.isPowerSaveMode) {
             SilentAlarmManager.triggerLockdown(applicationContext)
@@ -110,27 +115,32 @@ class HoneypotEngine : JobService() {
         stopMonitoring()
     }
 
-    private inner class AdaptiveFileObserver(path: String, private val handler: Handler) : 
+    private inner class AdaptiveFileObserver(path: String, private val handler: Handler) :
         FileObserver(path, OPEN or ACCESS or MODIFY) {
-        
         private var eventCount = 0
         private var adaptiveDelay = 0L
-        
-        override fun onEvent(event: Int, path: String?) {
+
+        override fun onEvent(
+            event: Int,
+            path: String?,
+        ) {
             eventCount++
-            
+
             if (eventCount > 10) {
                 adaptiveDelay = 100
             }
-            
+
             if (adaptiveDelay > 0) {
                 handler.postDelayed({ processEvent(event, path) }, adaptiveDelay)
             } else {
                 processEvent(event, path)
             }
         }
-        
-        private fun processEvent(event: Int, path: String?) {
+
+        private fun processEvent(
+            event: Int,
+            path: String?,
+        ) {
             if (path == "vault_keys.txt") {
                 onHoneypotTripped(path)
             }

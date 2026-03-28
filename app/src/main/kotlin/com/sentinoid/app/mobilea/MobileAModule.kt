@@ -21,7 +21,6 @@ import kotlin.math.sqrt
  * - Biometric gait verification
  */
 class MobileAModule(private val context: Context) : SensorEventListener {
-
     companion object {
         private const val TAG = "MobileAModule"
         private const val GAIT_BUFFER_SIZE = 100
@@ -45,7 +44,7 @@ class MobileAModule(private val context: Context) : SensorEventListener {
         val strideVariance: Float,
         val accelerationPattern: List<Float>,
         val gyroPattern: List<Float>,
-        val created: Long = System.currentTimeMillis()
+        val created: Long = System.currentTimeMillis(),
     )
 
     data class MotionSample(
@@ -56,25 +55,29 @@ class MobileAModule(private val context: Context) : SensorEventListener {
         val gyroX: Float,
         val gyroY: Float,
         val gyroZ: Float,
-        val magnitude: Float
+        val magnitude: Float,
     )
 
     data class ProximityStatus(
         val deviceNearby: Boolean,
         val distanceEstimate: Float,
         val confidence: Float,
-        val threatLevel: ThreatLevel
+        val threatLevel: ThreatLevel,
     )
 
     data class GaitLockStatus(
         val enabled: Boolean,
         val gaitMatched: Boolean,
         val confidence: Float,
-        val lastVerification: Long?
+        val lastVerification: Long?,
     )
 
     enum class ThreatLevel {
-        NONE, LOW, MEDIUM, HIGH, CRITICAL
+        NONE,
+        LOW,
+        MEDIUM,
+        HIGH,
+        CRITICAL,
     }
 
     fun isSamsungS26(): Boolean {
@@ -94,10 +97,10 @@ class MobileAModule(private val context: Context) : SensorEventListener {
             val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
             val renderer = android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_RENDERER)
             renderer?.contains("RDNA", ignoreCase = true) == true ||
-            renderer?.contains("AMD", ignoreCase = true) == true
+                renderer?.contains("AMD", ignoreCase = true) == true
         } catch (e: Exception) {
             Build.HARDWARE.contains("qcom", ignoreCase = true) &&
-            Build.BOARD.contains("taro", ignoreCase = true)
+                Build.BOARD.contains("taro", ignoreCase = true)
         }
     }
 
@@ -133,7 +136,7 @@ class MobileAModule(private val context: Context) : SensorEventListener {
             active = active,
             obfuscationLevel = if (active) 0.95f else 0f,
             method = "RDNA Frame-Buffer Scrambling",
-            initializedAt = if (initTime > 0) initTime else null
+            initializedAt = if (initTime > 0) initTime else null,
         )
     }
 
@@ -142,7 +145,7 @@ class MobileAModule(private val context: Context) : SensorEventListener {
         val active: Boolean,
         val obfuscationLevel: Float,
         val method: String,
-        val initializedAt: Long?
+        val initializedAt: Long?,
     )
 
     fun scrambleFrameBuffer() {
@@ -185,39 +188,45 @@ class MobileAModule(private val context: Context) : SensorEventListener {
         if (!isGaitTracking) return
         when (event.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> {
-                val magnitude = sqrt(
-                    event.values[0] * event.values[0] +
-                    event.values[1] * event.values[1] +
-                    event.values[2] * event.values[2]
-                )
-                val sample = MotionSample(
-                    timestamp = event.timestamp,
-                    accelX = event.values[0],
-                    accelY = event.values[1],
-                    accelZ = event.values[2],
-                    gyroX = 0f,
-                    gyroY = 0f,
-                    gyroZ = 0f,
-                    magnitude = magnitude
-                )
+                val magnitude =
+                    sqrt(
+                        event.values[0] * event.values[0] +
+                            event.values[1] * event.values[1] +
+                            event.values[2] * event.values[2],
+                    )
+                val sample =
+                    MotionSample(
+                        timestamp = event.timestamp,
+                        accelX = event.values[0],
+                        accelY = event.values[1],
+                        accelZ = event.values[2],
+                        gyroX = 0f,
+                        gyroY = 0f,
+                        gyroZ = 0f,
+                        magnitude = magnitude,
+                    )
                 addToGaitBuffer(sample)
             }
             Sensor.TYPE_GYROSCOPE -> {
                 val lastSample = gaitBuffer.peek()
                 if (lastSample != null) {
                     gaitBuffer.poll()
-                    val updatedSample = lastSample.copy(
-                        gyroX = event.values[0],
-                        gyroY = event.values[1],
-                        gyroZ = event.values[2]
-                    )
+                    val updatedSample =
+                        lastSample.copy(
+                            gyroX = event.values[0],
+                            gyroY = event.values[1],
+                            gyroZ = event.values[2],
+                        )
                     gaitBuffer.offer(updatedSample)
                 }
             }
         }
     }
 
-    override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+    override fun onAccuracyChanged(
+        sensor: Sensor,
+        accuracy: Int,
+    ) {
         // Handle accuracy changes if needed
     }
 
@@ -242,7 +251,7 @@ class MobileAModule(private val context: Context) : SensorEventListener {
             cadence = cadence,
             strideVariance = variance,
             accelerationPattern = accelPattern,
-            gyroPattern = gyroPattern
+            gyroPattern = gyroPattern,
         )
     }
 
@@ -262,17 +271,18 @@ class MobileAModule(private val context: Context) : SensorEventListener {
                 enabled = true,
                 gaitMatched = false,
                 confidence = 0f,
-                lastVerification = null
+                lastVerification = null,
             )
         }
         val confidence = compareGaitProfiles(currentProfile, storedProfile)
         val matched = confidence >= GAIT_MATCH_THRESHOLD
-        val status = GaitLockStatus(
-            enabled = true,
-            gaitMatched = matched,
-            confidence = confidence,
-            lastVerification = System.currentTimeMillis()
-        )
+        val status =
+            GaitLockStatus(
+                enabled = true,
+                gaitMatched = matched,
+                confidence = confidence,
+                lastVerification = System.currentTimeMillis(),
+            )
         securePreferences.putBoolean("last_gait_matched", matched)
         securePreferences.putFloat("last_gait_confidence", confidence)
         securePreferences.putLong("last_gait_verification", System.currentTimeMillis())
@@ -290,17 +300,24 @@ class MobileAModule(private val context: Context) : SensorEventListener {
         }
     }
 
-    private fun compareGaitProfiles(current: GaitProfile, reference: GaitProfile): Float {
+    private fun compareGaitProfiles(
+        current: GaitProfile,
+        reference: GaitProfile,
+    ): Float {
         val cadenceDiff = kotlin.math.abs(current.cadence - reference.cadence) / reference.cadence
         val cadenceScore = 1f - kotlin.math.min(cadenceDiff, 1f)
-        val varianceDiff = kotlin.math.abs(current.strideVariance - reference.strideVariance) /
-                          (reference.strideVariance + 0.001f)
+        val varianceDiff =
+            kotlin.math.abs(current.strideVariance - reference.strideVariance) /
+                (reference.strideVariance + 0.001f)
         val varianceScore = 1f - kotlin.math.min(varianceDiff, 1f)
         val accelScore = comparePatterns(current.accelerationPattern, reference.accelerationPattern)
         return (cadenceScore * 0.3f + varianceScore * 0.2f + accelScore * 0.5f)
     }
 
-    private fun comparePatterns(current: List<Float>, reference: List<Float>): Float {
+    private fun comparePatterns(
+        current: List<Float>,
+        reference: List<Float>,
+    ): Float {
         if (current.isEmpty() || reference.isEmpty()) return 0f
         val minSize = kotlin.math.min(current.size, reference.size)
         var sumSquaredDiff = 0f
@@ -319,22 +336,23 @@ class MobileAModule(private val context: Context) : SensorEventListener {
                 deviceNearby = false,
                 distanceEstimate = -1f,
                 confidence = 0f,
-                threatLevel = ThreatLevel.NONE
+                threatLevel = ThreatLevel.NONE,
             )
         }
         val avgMagnitude = samples.map { it.magnitude }.average().toFloat()
         val variance = calculateVariance(samples.map { it.magnitude })
-        val threatLevel = when {
-            variance < 0.1f -> ThreatLevel.LOW
-            avgMagnitude > 15f -> ThreatLevel.MEDIUM
-            !verifyGait().gaitMatched -> ThreatLevel.HIGH
-            else -> ThreatLevel.NONE
-        }
+        val threatLevel =
+            when {
+                variance < 0.1f -> ThreatLevel.LOW
+                avgMagnitude > 15f -> ThreatLevel.MEDIUM
+                !verifyGait().gaitMatched -> ThreatLevel.HIGH
+                else -> ThreatLevel.NONE
+            }
         return ProximityStatus(
             deviceNearby = true,
             distanceEstimate = estimateDistance(avgMagnitude),
             confidence = 0.7f,
-            threatLevel = threatLevel
+            threatLevel = threatLevel,
         )
     }
 
@@ -375,7 +393,9 @@ class MobileAModule(private val context: Context) : SensorEventListener {
     }
 
     private fun serializeGaitProfile(profile: GaitProfile): String {
-        return """${profile.cadence},${profile.strideVariance},${profile.accelerationPattern.joinToString("|")},${profile.gyroPattern.joinToString("|")}"""
+        return """${profile.cadence},${profile.strideVariance},${profile.accelerationPattern.joinToString(
+            "|",
+        )},${profile.gyroPattern.joinToString("|")}"""
     }
 
     private fun deserializeGaitProfile(data: String): GaitProfile {
@@ -384,7 +404,7 @@ class MobileAModule(private val context: Context) : SensorEventListener {
             cadence = parts[0].toFloat(),
             strideVariance = parts[1].toFloat(),
             accelerationPattern = parts[2].split("|").map { it.toFloat() },
-            gyroPattern = parts[3].split("|").map { it.toFloat() }
+            gyroPattern = parts[3].split("|").map { it.toFloat() },
         )
     }
 }

@@ -27,7 +27,6 @@ import java.security.KeyStoreException
 import java.util.concurrent.Executor
 
 class RecoveryActivity : AppCompatActivity() {
-
     private lateinit var recoveryManager: RecoveryManager
     private lateinit var executor: Executor
     private lateinit var biometricPrompt: BiometricPrompt
@@ -57,44 +56,58 @@ class RecoveryActivity : AppCompatActivity() {
     }
 
     private fun setupBiometricAuth() {
-        biometricPrompt = BiometricPrompt(this, executor,
-            object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    super.onAuthenticationSucceeded(result)
-                    // Retry the pending operation after successful authentication
-                    pendingShardsForRecovery?.let { shards ->
-                        performShardRecovery(shards)
-                        pendingShardsForRecovery = null
+        biometricPrompt =
+            BiometricPrompt(
+                this,
+                executor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        super.onAuthenticationSucceeded(result)
+                        // Retry the pending operation after successful authentication
+                        pendingShardsForRecovery?.let { shards ->
+                            performShardRecovery(shards)
+                            pendingShardsForRecovery = null
+                        }
+                        pendingWordsForRecovery?.let { words ->
+                            performMnemonicRecovery(words)
+                            pendingWordsForRecovery = null
+                        }
                     }
-                    pendingWordsForRecovery?.let { words ->
-                        performMnemonicRecovery(words)
+
+                    override fun onAuthenticationFailed() {
+                        super.onAuthenticationFailed()
+                        Toast.makeText(
+                            this@RecoveryActivity,
+                            "Authentication failed",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        pendingShardsForRecovery = null
                         pendingWordsForRecovery = null
                     }
-                }
 
-                override fun onAuthenticationFailed() {
-                    super.onAuthenticationFailed()
-                    Toast.makeText(this@RecoveryActivity, 
-                        "Authentication failed", Toast.LENGTH_SHORT).show()
-                    pendingShardsForRecovery = null
-                    pendingWordsForRecovery = null
-                }
+                    override fun onAuthenticationError(
+                        errorCode: Int,
+                        errString: CharSequence,
+                    ) {
+                        super.onAuthenticationError(errorCode, errString)
+                        Toast.makeText(
+                            this@RecoveryActivity,
+                            "Authentication error: $errString",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                        pendingShardsForRecovery = null
+                        pendingWordsForRecovery = null
+                    }
+                },
+            )
 
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    super.onAuthenticationError(errorCode, errString)
-                    Toast.makeText(this@RecoveryActivity, 
-                        "Authentication error: $errString", Toast.LENGTH_LONG).show()
-                    pendingShardsForRecovery = null
-                    pendingWordsForRecovery = null
-                }
-            })
-
-        promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Sentinoid Recovery")
-            .setSubtitle("Authenticate to access recovery functions")
-            .setNegativeButtonText("Cancel")
-            .setConfirmationRequired(true)
-            .build()
+        promptInfo =
+            BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Sentinoid Recovery")
+                .setSubtitle("Authenticate to access recovery functions")
+                .setNegativeButtonText("Cancel")
+                .setConfirmationRequired(true)
+                .build()
     }
 
     private fun authenticateAndExecute(operation: () -> Unit) {
@@ -104,7 +117,8 @@ class RecoveryActivity : AppCompatActivity() {
             when (e) {
                 is android.security.keystore.UserNotAuthenticatedException,
                 is KeyPermanentlyInvalidatedException,
-                is KeyStoreException -> {
+                is KeyStoreException,
+                -> {
                     biometricPrompt.authenticate(promptInfo)
                 }
                 else -> throw e
@@ -145,18 +159,19 @@ class RecoveryActivity : AppCompatActivity() {
     private fun loadShards() {
         authenticateAndExecute {
             lifecycleScope.launch(Dispatchers.IO) {
-                val shards = try {
-                    (1..3).mapNotNull { index ->
-                        recoveryManager.getStoredShard(index)
+                val shards =
+                    try {
+                        (1..3).mapNotNull { index ->
+                            recoveryManager.getStoredShard(index)
+                        }
+                    } catch (e: Exception) {
+                        emptyList<String>()
                     }
-                } catch (e: Exception) {
-                    emptyList<String>()
-                }
-                
+
                 withContext(Dispatchers.Main) {
                     currentShards = shards
                     shardAdapter.submitList(shards)
-                    
+
                     // Show empty state message if no shards
                     if (shards.isEmpty() && recoveryManager.isRecoverySetup()) {
                         tvStatus.text = "Shards encrypted - authenticate to view"
@@ -169,8 +184,10 @@ class RecoveryActivity : AppCompatActivity() {
     private fun setupRecovery() {
         AlertDialog.Builder(this)
             .setTitle("Setup Recovery")
-            .setMessage("This will generate a 24-word mnemonic and split it into 3 shards (2-of-3 required for recovery). " +
-                    "Write down your shards and store them in separate secure locations.")
+            .setMessage(
+                "This will generate a 24-word mnemonic and split it into 3 shards (2-of-3 required for recovery). " +
+                    "Write down your shards and store them in separate secure locations.",
+            )
             .setPositiveButton("Continue") { _, _ ->
                 performSetup()
             }
@@ -183,34 +200,41 @@ class RecoveryActivity : AppCompatActivity() {
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     val setup = recoveryManager.setupRecovery()
-                    
+
                     withContext(Dispatchers.Main) {
                         showSetupResults(setup.mnemonicWords, setup.shardStrings)
                         updateUI()
                     }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@RecoveryActivity, 
-                            "Setup failed: ${e.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            this@RecoveryActivity,
+                            "Setup failed: ${e.message}",
+                            Toast.LENGTH_LONG,
+                        ).show()
                     }
                 }
             }
         }
     }
 
-    private fun showSetupResults(words: List<String>, shards: List<String>) {
-        val message = buildString {
-            appendLine("=== MNEMONIC WORDS (24 words) ===")
-            words.chunked(4).forEach { chunk ->
-                appendLine(chunk.joinToString(" "))
-            }
-            appendLine()
-            appendLine("=== SHARDS (2 of 3 required) ===")
-            shards.forEachIndexed { index, shard ->
-                appendLine("Shard ${index + 1}: $shard")
+    private fun showSetupResults(
+        words: List<String>,
+        shards: List<String>,
+    ) {
+        val message =
+            buildString {
+                appendLine("=== MNEMONIC WORDS (24 words) ===")
+                words.chunked(4).forEach { chunk ->
+                    appendLine(chunk.joinToString(" "))
+                }
                 appendLine()
+                appendLine("=== SHARDS (2 of 3 required) ===")
+                shards.forEachIndexed { index, shard ->
+                    appendLine("Shard ${index + 1}: $shard")
+                    appendLine()
+                }
             }
-        }
 
         AlertDialog.Builder(this)
             .setTitle("SAVE YOUR RECOVERY DATA")
@@ -222,7 +246,7 @@ class RecoveryActivity : AppCompatActivity() {
 
     private fun showRecoverDialog() {
         val options = arrayOf("Recover from Shards", "Recover from Mnemonic")
-        
+
         AlertDialog.Builder(this)
             .setTitle("Select Recovery Method")
             .setItems(options) { _, which ->
@@ -244,12 +268,13 @@ class RecoveryActivity : AppCompatActivity() {
             .setTitle("Enter 2 or 3 Shards")
             .setView(view)
             .setPositiveButton("Recover") { _, _ ->
-                val shards = listOfNotNull(
-                    etShard1.text?.toString()?.trim(),
-                    etShard2.text?.toString()?.trim(),
-                    etShard3.text?.toString()?.trim()
-                ).filter { it.isNotEmpty() }
-                
+                val shards =
+                    listOfNotNull(
+                        etShard1.text?.toString()?.trim(),
+                        etShard2.text?.toString()?.trim(),
+                        etShard3.text?.toString()?.trim(),
+                    ).filter { it.isNotEmpty() }
+
                 if (shards.size < 2) {
                     Toast.makeText(this, "Please enter at least 2 shards", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
@@ -283,12 +308,16 @@ class RecoveryActivity : AppCompatActivity() {
     private fun performShardRecovery(shards: List<String>) {
         lifecycleScope.launch(Dispatchers.IO) {
             val result = recoveryManager.recoverFromShards(shards)
-            
+
             withContext(Dispatchers.Main) {
                 when (result) {
                     is RecoveryManager.RecoveryResult.Success -> showRecoverySuccess()
-                    is RecoveryManager.RecoveryResult.Error -> Toast.makeText(this@RecoveryActivity,
-                        "Recovery failed: ${result.message}", Toast.LENGTH_LONG).show()
+                    is RecoveryManager.RecoveryResult.Error ->
+                        Toast.makeText(
+                            this@RecoveryActivity,
+                            "Recovery failed: ${result.message}",
+                            Toast.LENGTH_LONG,
+                        ).show()
                 }
             }
         }
@@ -297,12 +326,16 @@ class RecoveryActivity : AppCompatActivity() {
     private fun performMnemonicRecovery(words: List<String>) {
         lifecycleScope.launch(Dispatchers.IO) {
             val result = recoveryManager.recoverFromMnemonic(words)
-            
+
             withContext(Dispatchers.Main) {
                 when (result) {
                     is RecoveryManager.RecoveryResult.Success -> showRecoverySuccess()
-                    is RecoveryManager.RecoveryResult.Error -> Toast.makeText(this@RecoveryActivity,
-                        "Recovery failed: ${result.message}", Toast.LENGTH_LONG).show()
+                    is RecoveryManager.RecoveryResult.Error ->
+                        Toast.makeText(
+                            this@RecoveryActivity,
+                            "Recovery failed: ${result.message}",
+                            Toast.LENGTH_LONG,
+                        ).show()
                 }
             }
         }
@@ -327,7 +360,7 @@ class RecoveryActivity : AppCompatActivity() {
             .setPositiveButton("Verify") { _, _ ->
                 val shard = etShard.text?.toString() ?: ""
                 val isValid = recoveryManager.validateShard(shard)
-                
+
                 AlertDialog.Builder(this)
                     .setTitle("Verification Result")
                     .setMessage(if (isValid) "✓ Shard is valid" else "✗ Invalid shard format")
@@ -346,13 +379,20 @@ class RecoveryActivity : AppCompatActivity() {
             notifyDataSetChanged()
         }
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(android.R.layout.simple_list_item_2, parent, false)
+        override fun onCreateViewHolder(
+            parent: ViewGroup,
+            viewType: Int,
+        ): ViewHolder {
+            val view =
+                LayoutInflater.from(parent.context)
+                    .inflate(android.R.layout.simple_list_item_2, parent, false)
             return ViewHolder(view)
         }
 
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        override fun onBindViewHolder(
+            holder: ViewHolder,
+            position: Int,
+        ) {
             val shard = shards[position]
             holder.bind(position + 1, shard)
         }
@@ -363,7 +403,10 @@ class RecoveryActivity : AppCompatActivity() {
             private val titleView: TextView = view.findViewById(android.R.id.text1)
             private val contentView: TextView = view.findViewById(android.R.id.text2)
 
-            fun bind(shardNumber: Int, shard: String) {
+            fun bind(
+                shardNumber: Int,
+                shard: String,
+            ) {
                 titleView.text = "Shard $shardNumber (2-of-3 required)"
                 contentView.text = shard
                 contentView.setTextIsSelectable(true)
@@ -374,7 +417,10 @@ class RecoveryActivity : AppCompatActivity() {
                 }
             }
 
-            private fun copyToClipboard(label: String, text: String) {
+            private fun copyToClipboard(
+                label: String,
+                text: String,
+            ) {
                 val clipboard = itemView.context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                 val clip = android.content.ClipData.newPlainText(label, text)
                 clipboard.setPrimaryClip(clip)

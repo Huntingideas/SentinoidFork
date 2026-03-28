@@ -11,18 +11,21 @@ import android.os.Build
  * Part of the self-healing architecture.
  */
 class WatchdogResurrectionReceiver : BroadcastReceiver() {
-
     companion object {
         const val ACTION_TRIGGER_RESURRECTION = "com.sentinoid.app.TRIGGER_RESURRECTION"
         private const val MAX_RESURRECTION_ATTEMPTS = 5
         private const val RESURRECTION_COOLDOWN_MS = 30000L
     }
 
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         when (intent.action) {
             ACTION_TRIGGER_RESURRECTION,
             Intent.ACTION_BOOT_COMPLETED,
-            Intent.ACTION_MY_PACKAGE_REPLACED -> {
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            -> {
                 attemptResurrection(context)
             }
         }
@@ -43,9 +46,10 @@ class WatchdogResurrectionReceiver : BroadcastReceiver() {
             apply()
         }
 
-        val serviceIntent = Intent(context, WatchdogService::class.java).apply {
-            action = WatchdogService.ACTION_RESURRECT
-        }
+        val serviceIntent =
+            Intent(context, WatchdogService::class.java).apply {
+                action = WatchdogService.ACTION_RESURRECT
+            }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent)

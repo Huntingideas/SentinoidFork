@@ -2,8 +2,8 @@ package com.sentinoid.app.atmosphere
 
 import android.content.Context
 import com.sentinoid.app.hardware.HardwareAbstractionLayer
-import com.sentinoid.app.ultra.UltraModule
 import com.sentinoid.app.mobilea.MobileAModule
+import com.sentinoid.app.ultra.UltraModule
 
 /**
  * Unified Atmosphere Manager
@@ -11,7 +11,6 @@ import com.sentinoid.app.mobilea.MobileAModule
  * Automatically selects appropriate atmosphere based on hardware detection
  */
 class AtmosphereManager(private val context: Context) {
-
     private val hal = HardwareAbstractionLayer(context)
     private var ultraModule: UltraModule? = null
     private var mobileAModule: MobileAModule? = null
@@ -22,7 +21,7 @@ class AtmosphereManager(private val context: Context) {
         val features: List<String>,
         val isPremium: Boolean,
         val hardwareCapabilities: HardwareAbstractionLayer.HardwareCapabilities,
-        val moduleStatus: ModuleStatus
+        val moduleStatus: ModuleStatus,
     )
 
     data class ModuleStatus(
@@ -30,7 +29,7 @@ class AtmosphereManager(private val context: Context) {
         val acceleratorAvailable: Boolean,
         val sideChannelJamming: Boolean,
         val rdnaObfuscation: Boolean,
-        val gaitLock: Boolean
+        val gaitLock: Boolean,
     )
 
     init {
@@ -63,27 +62,31 @@ class AtmosphereManager(private val context: Context) {
         val atmosphere = hal.detectAtmosphere()
         val capabilities = hal.getCapabilities()
 
-        val features = when (atmosphere) {
-            HardwareAbstractionLayer.Atmosphere.ULTRA -> listOf(
-                "SEV-SNP Memory Encryption",
-                "AMD Accelerator Offload",
-                "Side-Channel Jamming",
-                "NPU Task Delegation"
-            )
-            HardwareAbstractionLayer.Atmosphere.MOBILE_A -> listOf(
-                "RDNA Frame-Buffer Obfuscation",
-                "Gait-Based Proximity Lock",
-                "NPU Behavioral Analysis",
-                "Samsung Knox Integration",
-                "Side-Channel Jamming"
-            )
-            else -> listOf(
-                "BIP39 + Shamir Recovery",
-                "Honeypot Detection",
-                "Hardware Call Masking",
-                "Watchdog Monitoring"
-            )
-        }
+        val features =
+            when (atmosphere) {
+                HardwareAbstractionLayer.Atmosphere.ULTRA ->
+                    listOf(
+                        "SEV-SNP Memory Encryption",
+                        "AMD Accelerator Offload",
+                        "Side-Channel Jamming",
+                        "NPU Task Delegation",
+                    )
+                HardwareAbstractionLayer.Atmosphere.MOBILE_A ->
+                    listOf(
+                        "RDNA Frame-Buffer Obfuscation",
+                        "Gait-Based Proximity Lock",
+                        "NPU Behavioral Analysis",
+                        "Samsung Knox Integration",
+                        "Side-Channel Jamming",
+                    )
+                else ->
+                    listOf(
+                        "BIP39 + Shamir Recovery",
+                        "Honeypot Detection",
+                        "Hardware Call Masking",
+                        "Watchdog Monitoring",
+                    )
+            }
 
         return AtmosphereStatus(
             currentAtmosphere = atmosphere,
@@ -91,7 +94,7 @@ class AtmosphereManager(private val context: Context) {
             features = features,
             isPremium = atmosphere != HardwareAbstractionLayer.Atmosphere.LITE,
             hardwareCapabilities = capabilities,
-            moduleStatus = getModuleStatus()
+            moduleStatus = getModuleStatus(),
         )
     }
 
@@ -102,10 +105,11 @@ class AtmosphereManager(private val context: Context) {
         return ModuleStatus(
             sevSnpActive = ultra?.getSevStatus()?.enabled ?: false,
             acceleratorAvailable = ultra?.getAcceleratorStatus()?.available ?: false,
-            sideChannelJamming = ultra?.getJammingStatus()?.active
-                ?: mobileA?.detectProximity()?.threatLevel?.ordinal?.let { it > 0 } ?: false,
+            sideChannelJamming =
+                ultra?.getJammingStatus()?.active
+                    ?: mobileA?.detectProximity()?.threatLevel?.ordinal?.let { it > 0 } ?: false,
             rdnaObfuscation = mobileA?.getRdnaStatus()?.active ?: false,
-            gaitLock = mobileA?.verifyGait()?.gaitMatched ?: false
+            gaitLock = mobileA?.verifyGait()?.gaitMatched ?: false,
         )
     }
 

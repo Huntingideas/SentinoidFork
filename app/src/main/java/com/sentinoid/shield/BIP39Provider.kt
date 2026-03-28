@@ -10,31 +10,31 @@ import java.security.SecureRandom
 import java.util.Locale
 
 class BIP39Provider {
-
     companion object {
         private const val SEED_LENGTH = 64
         private const val ITERATION_COUNT = 2048
 
         // BIP39 English wordlist (Extended for functional testing)
-        private val WORD_LIST = arrayOf(
-            "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract",
-            "absurd", "abuse", "access", "accident", "account", "accuse", "achieve", "acid",
-            "acoustic", "acquire", "across", "act", "action", "actor", "actress", "actual",
-            "adapt", "add", "addict", "address", "adjust", "admit", "adult", "advance",
-            "advice", "aerial", "aerobic", "affair", "afford", "afraid", "again", "age",
-            "agent", "agree", "ahead", "aim", "air", "airport", "aisle", "alarm",
-            "album", "alcohol", "alert", "alien", "all", "alley", "allow", "almost",
-            "alone", "alpha", "already", "also", "alter", "always", "amateur", "amazing",
-            "among", "amount", "amused", "analyst", "anchor", "ancient", "anger", "angle",
-            "angry", "animal", "ankle", "announce", "annual", "another", "answer", "antenna",
-            "antique", "anxiety", "any", "apart", "apology", "appear", "apple", "approve",
-            "april", "arch", "arctic", "area", "arena", "argue", "arm", "armed",
-            "armor", "army", "around", "arrange", "arrest", "arrive", "arrow", "art",
-            "artefact", "artist", "artwork", "ask", "aspect", "assault", "asset", "assist",
-            "assume", "asthma", "athlete", "atom", "attack", "attend", "attitude", "attract",
-            "auction", "audit", "august", "aunt", "author", "auto", "autumn", "average",
-            "avocado", "avoid", "awake", "aware", "away", "awesome", "awful", "awkward"
-        ).distinct().toTypedArray()
+        private val WORD_LIST =
+            arrayOf(
+                "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract",
+                "absurd", "abuse", "access", "accident", "account", "accuse", "achieve", "acid",
+                "acoustic", "acquire", "across", "act", "action", "actor", "actress", "actual",
+                "adapt", "add", "addict", "address", "adjust", "admit", "adult", "advance",
+                "advice", "aerial", "aerobic", "affair", "afford", "afraid", "again", "age",
+                "agent", "agree", "ahead", "aim", "air", "airport", "aisle", "alarm",
+                "album", "alcohol", "alert", "alien", "all", "alley", "allow", "almost",
+                "alone", "alpha", "already", "also", "alter", "always", "amateur", "amazing",
+                "among", "amount", "amused", "analyst", "anchor", "ancient", "anger", "angle",
+                "angry", "animal", "ankle", "announce", "annual", "another", "answer", "antenna",
+                "antique", "anxiety", "any", "apart", "apology", "appear", "apple", "approve",
+                "april", "arch", "arctic", "area", "arena", "argue", "arm", "armed",
+                "armor", "army", "around", "arrange", "arrest", "arrive", "arrow", "art",
+                "artefact", "artist", "artwork", "ask", "aspect", "assault", "asset", "assist",
+                "assume", "asthma", "athlete", "atom", "attack", "attend", "attitude", "attract",
+                "auction", "audit", "august", "aunt", "author", "auto", "autumn", "average",
+                "avocado", "avoid", "awake", "aware", "away", "awesome", "awful", "awkward",
+            ).distinct().toTypedArray()
 
         private val WORD_INDEX_MAP = WORD_LIST.withIndex().associate { it.value to it.index }
     }
@@ -43,18 +43,19 @@ class BIP39Provider {
         val words: List<String>,
         val entropy: ByteArray,
         val seed: ByteArray,
-        val masterKey: ByteArray
+        val masterKey: ByteArray,
     )
 
     fun generateMnemonic(wordCount: Int = 24): MnemonicSeed {
-        val entropyBits = when (wordCount) {
-            12 -> 128
-            15 -> 160
-            18 -> 192
-            21 -> 224
-            24 -> 256
-            else -> throw IllegalArgumentException("Invalid word count")
-        }
+        val entropyBits =
+            when (wordCount) {
+                12 -> 128
+                15 -> 160
+                18 -> 192
+                21 -> 224
+                24 -> 256
+                else -> throw IllegalArgumentException("Invalid word count")
+            }
 
         val entropyBytes = entropyBits / 8
         val entropy = ByteArray(entropyBytes)
@@ -69,7 +70,7 @@ class BIP39Provider {
 
     private fun generateWordsFromEntropy(entropy: ByteArray): List<String> {
         val checksum = calculateChecksum(entropy)
-        
+
         // Combine entropy and checksum
         val combined = ByteArray(entropy.size + 1)
         System.arraycopy(entropy, 0, combined, 0, entropy.size)
@@ -108,7 +109,7 @@ class BIP39Provider {
             mnemonic.toByteArray(StandardCharsets.UTF_8),
             salt,
             ITERATION_COUNT,
-            SEED_LENGTH
+            SEED_LENGTH,
         )
     }
 
@@ -116,7 +117,7 @@ class BIP39Provider {
         password: ByteArray,
         salt: ByteArray,
         iterations: Int,
-        keyLength: Int
+        keyLength: Int,
     ): ByteArray {
         val generator = PKCS5S2ParametersGenerator(SHA512Digest())
         generator.init(password, salt, iterations)

@@ -2,10 +2,7 @@ package com.sentinoid.app.security
 
 import android.content.Context
 import android.os.Debug
-import android.os.Process
-import java.io.BufferedReader
 import java.io.File
-import java.io.InputStreamReader
 
 /**
  * Anti-Debugging Detection
@@ -17,7 +14,6 @@ import java.io.InputStreamReader
  * - Emulator detection
  */
 class AntiDebugDetection(private val context: Context) {
-
     companion object {
         private const val TAG = "AntiDebugDetection"
 
@@ -26,25 +22,27 @@ class AntiDebugDetection(private val context: Context) {
         private const val CHECK_INTERVAL_SUSPICIOUS = 500L
 
         // Suspicious process names
-        private val DEBUG_PROCESSES = listOf(
-            "gdb", "lldb", "strace", "ltrace", "frida-server",
-            "xposed", "edxp", "magiskd", "supersu"
-        )
+        private val DEBUG_PROCESSES =
+            listOf(
+                "gdb", "lldb", "strace", "ltrace", "frida-server",
+                "xposed", "edxp", "magiskd", "supersu",
+            )
 
         // Debug property indicators
-        private val DEBUG_PROPERTIES = listOf(
-            "ro.debuggable",
-            "init.svc.adbd",
-            "persist.adb.trace",
-            "service.adb.tcp.port"
-        )
+        private val DEBUG_PROPERTIES =
+            listOf(
+                "ro.debuggable",
+                "init.svc.adbd",
+                "persist.adb.trace",
+                "service.adb.tcp.port",
+            )
     }
 
     data class DebugStatus(
         val isDebugged: Boolean,
         val detectedMethods: List<DebugMethod>,
         val threatLevel: ThreatLevel,
-        val timestamp: Long
+        val timestamp: Long,
     )
 
     enum class DebugMethod {
@@ -54,15 +52,15 @@ class AntiDebugDetection(private val context: Context) {
         EMULATOR_ENVIRONMENT,
         HOOKING_FRAMEWORK,
         TAMPERED_BINARY,
-        DEBUG_PROPERTIES
+        DEBUG_PROPERTIES,
     }
 
     enum class ThreatLevel {
-        NONE,       // No debugging detected
-        LOW,        // Suspicious but not confirmed
-        MEDIUM,     // Likely debugging
-        HIGH,       // Active debugging detected
-        CRITICAL    // Multiple indicators, self-destruct triggered
+        NONE, // No debugging detected
+        LOW, // Suspicious but not confirmed
+        MEDIUM, // Likely debugging
+        HIGH, // Active debugging detected
+        CRITICAL, // Multiple indicators, self-destruct triggered
     }
 
     private val securePreferences = SecurePreferences(context)
@@ -111,7 +109,7 @@ class AntiDebugDetection(private val context: Context) {
             isDebugged = detectedMethods.isNotEmpty(),
             detectedMethods = detectedMethods,
             threatLevel = threatLevel,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
         )
     }
 
@@ -120,10 +118,10 @@ class AntiDebugDetection(private val context: Context) {
      */
     private fun isJdwpDebuggerAttached(): Boolean {
         return Debug.isDebuggerConnected() ||
-               Thread.currentThread().stackTrace.any { 
-                   it.className.contains("jdwp") || 
-                   it.methodName.contains("debug") 
-               }
+            Thread.currentThread().stackTrace.any {
+                it.className.contains("jdwp") ||
+                    it.methodName.contains("debug")
+            }
     }
 
     /**
@@ -154,10 +152,14 @@ class AntiDebugDetection(private val context: Context) {
         return try {
             // Attempt self-ptrace - fails if being traced by another process
             // PR_GET_DUMPABLE = 0
-            val result = android.system.Os.prctl(
-                0,
-                0, 0, 0, 0
-            )
+            val result =
+                android.system.Os.prctl(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                )
             result == 0
         } catch (e: Exception) {
             // Alternative: check process state
@@ -182,37 +184,32 @@ class AntiDebugDetection(private val context: Context) {
      * Detect emulator environment
      */
     private fun isEmulatorEnvironment(): Boolean {
-        val indicators = listOf(
-            // Check hardware
-            android.os.Build.HARDWARE.contains("goldfish"),
-            android.os.Build.HARDWARE.contains("ranchu"),
-            android.os.Build.HARDWARE.contains("emulator"),
-
-            // Check product
-            android.os.Build.PRODUCT.contains("sdk"),
-            android.os.Build.PRODUCT.contains("emulator"),
-            android.os.Build.PRODUCT.contains("simulator"),
-
-            // Check device
-            android.os.Build.DEVICE.contains("emulator"),
-            android.os.Build.DEVICE.contains("generic"),
-
-            // Check board
-            android.os.Build.BOARD.lowercase().contains("goldfish"),
-            android.os.Build.BOARD.lowercase().contains("unknown"),
-
-            // Check for QEMU
-            File("/dev/qemu_pipe").exists(),
-            File("/dev/goldfish_pipe").exists(),
-
-            // Check for common emulator files
-            File("/system/bin/androVM-prop").exists(),
-            File("/system/bin/nox-prop").exists(),
-            File("/system/lib/libc_malloc_debug_qemu.so").exists(),
-
-            // Check CPU info
-            checkCpuInfoForEmulator()
-        )
+        val indicators =
+            listOf(
+                // Check hardware
+                android.os.Build.HARDWARE.contains("goldfish"),
+                android.os.Build.HARDWARE.contains("ranchu"),
+                android.os.Build.HARDWARE.contains("emulator"),
+                // Check product
+                android.os.Build.PRODUCT.contains("sdk"),
+                android.os.Build.PRODUCT.contains("emulator"),
+                android.os.Build.PRODUCT.contains("simulator"),
+                // Check device
+                android.os.Build.DEVICE.contains("emulator"),
+                android.os.Build.DEVICE.contains("generic"),
+                // Check board
+                android.os.Build.BOARD.lowercase().contains("goldfish"),
+                android.os.Build.BOARD.lowercase().contains("unknown"),
+                // Check for QEMU
+                File("/dev/qemu_pipe").exists(),
+                File("/dev/goldfish_pipe").exists(),
+                // Check for common emulator files
+                File("/system/bin/androVM-prop").exists(),
+                File("/system/bin/nox-prop").exists(),
+                File("/system/lib/libc_malloc_debug_qemu.so").exists(),
+                // Check CPU info
+                checkCpuInfoForEmulator(),
+            )
 
         return indicators.count { it } >= 2
     }
@@ -221,10 +218,10 @@ class AntiDebugDetection(private val context: Context) {
         return try {
             val cpuInfo = File("/proc/cpuinfo").readText()
             cpuInfo.contains("hypervisor") ||
-            cpuInfo.contains("qemu") ||
-            cpuInfo.contains("kvm") ||
-            cpuInfo.contains("VMware") ||
-            cpuInfo.contains("VirtualBox")
+                cpuInfo.contains("qemu") ||
+                cpuInfo.contains("kvm") ||
+                cpuInfo.contains("VMware") ||
+                cpuInfo.contains("VirtualBox")
         } catch (e: Exception) {
             false
         }
@@ -252,41 +249,37 @@ class AntiDebugDetection(private val context: Context) {
     }
 
     private fun checkFrida(): Boolean {
-        val fridaIndicators = listOf(
-            // Frida server ports
-            isPortOpen(27042),
-
-            // Frida named pipes
-            File("/data/local/tmp/frida-server").exists(),
-            File("/data/local/tmp/re.frida.server").exists(),
-
-            // Frida agent in memory (simplified check)
-            checkMemoryForFrida(),
-
-            // Check for frida-specific strings in maps
-            checkMapsForFrida()
-        )
+        val fridaIndicators =
+            listOf(
+                // Frida server ports
+                isPortOpen(27042),
+                // Frida named pipes
+                File("/data/local/tmp/frida-server").exists(),
+                File("/data/local/tmp/re.frida.server").exists(),
+                // Frida agent in memory (simplified check)
+                checkMemoryForFrida(),
+                // Check for frida-specific strings in maps
+                checkMapsForFrida(),
+            )
 
         return fridaIndicators.count { it } >= 1
     }
 
     private fun checkXposed(): Boolean {
         return try {
-            val xposedIndicators = listOf(
-                // Check for Xposed classes
-                Class.forName("de.robv.android.xposed.XposedBridge"),
-                Class.forName("de.robv.android.xposed.XposedHelpers"),
-
-                // Check for Xposed installer files
-                File("/data/data/de.robv.android.xposed.installer/bin/XposedBridge.jar").exists(),
-
-                // Check for EdXposed
-                File("/system/framework/edxp.jar").exists(),
-
-                // Check for LSPosed
-                File("/data/adb/lspd").exists()
-            )
-            xposedIndicators.any { 
+            val xposedIndicators =
+                listOf(
+                    // Check for Xposed classes
+                    Class.forName("de.robv.android.xposed.XposedBridge"),
+                    Class.forName("de.robv.android.xposed.XposedHelpers"),
+                    // Check for Xposed installer files
+                    File("/data/data/de.robv.android.xposed.installer/bin/XposedBridge.jar").exists(),
+                    // Check for EdXposed
+                    File("/system/framework/edxp.jar").exists(),
+                    // Check for LSPosed
+                    File("/data/adb/lspd").exists(),
+                )
+            xposedIndicators.any {
                 when (it) {
                     is Class<*> -> true
                     is Boolean -> it
@@ -332,9 +325,9 @@ class AntiDebugDetection(private val context: Context) {
         val stackTrace = Thread.currentThread().stackTrace
         return stackTrace.any { element ->
             element.className.contains("xposed") ||
-            element.className.contains("frida") ||
-            element.methodName.contains("hook") ||
-            element.methodName.contains("replace")
+                element.className.contains("frida") ||
+                element.methodName.contains("hook") ||
+                element.methodName.contains("replace")
         }
     }
 
@@ -342,11 +335,12 @@ class AntiDebugDetection(private val context: Context) {
         // Check if critical system calls are hooked
         return try {
             // Compare gettimeofday results for timing anomalies
-            val times = (0..5).map {
-                val start = System.nanoTime()
-                System.currentTimeMillis()
-                System.nanoTime() - start
-            }
+            val times =
+                (0..5).map {
+                    val start = System.nanoTime()
+                    System.currentTimeMillis()
+                    System.nanoTime() - start
+                }
 
             // If timing is too consistent, might be hooked
             val variance = times.zipWithNext { a, b -> kotlin.math.abs(a - b) }
@@ -363,8 +357,11 @@ class AntiDebugDetection(private val context: Context) {
         return try {
             // Check APK signature (simplified)
             val pm = context.packageManager
-            val packageInfo = pm.getPackageInfo(context.packageName, 
-                android.content.pm.PackageManager.GET_SIGNATURES)
+            val packageInfo =
+                pm.getPackageInfo(
+                    context.packageName,
+                    android.content.pm.PackageManager.GET_SIGNATURES,
+                )
 
             // In production: verify signature against known good hash
             // For now: check if debug build
@@ -378,16 +375,17 @@ class AntiDebugDetection(private val context: Context) {
      * Check debug-related system properties using reflection
      */
     private fun checkDebugProperties(): Boolean {
-        val debugProps = DEBUG_PROPERTIES.map { prop ->
-            try {
-                val systemProperties = Class.forName("android.os.SystemProperties")
-                val getMethod = systemProperties.getMethod("get", String::class.java, String::class.java)
-                val value = getMethod.invoke(null, prop, "0") as String
-                value == "1" || value == "true"
-            } catch (e: Exception) {
-                false
+        val debugProps =
+            DEBUG_PROPERTIES.map { prop ->
+                try {
+                    val systemProperties = Class.forName("android.os.SystemProperties")
+                    val getMethod = systemProperties.getMethod("get", String::class.java, String::class.java)
+                    val value = getMethod.invoke(null, prop, "0") as String
+                    value == "1" || value == "true"
+                } catch (e: Exception) {
+                    false
+                }
             }
-        }
 
         return debugProps.count { it } >= 1
     }
@@ -398,12 +396,12 @@ class AntiDebugDetection(private val context: Context) {
     private fun calculateThreatLevel(methods: List<DebugMethod>): ThreatLevel {
         return when {
             methods.contains(DebugMethod.JDWP_DEBUGGER) &&
-            methods.contains(DebugMethod.NATIVE_DEBUGGER) -> ThreatLevel.CRITICAL
+                methods.contains(DebugMethod.NATIVE_DEBUGGER) -> ThreatLevel.CRITICAL
 
             methods.size >= 3 -> ThreatLevel.HIGH
 
             methods.contains(DebugMethod.JDWP_DEBUGGER) ||
-            methods.contains(DebugMethod.NATIVE_DEBUGGER) -> ThreatLevel.HIGH
+                methods.contains(DebugMethod.NATIVE_DEBUGGER) -> ThreatLevel.HIGH
 
             methods.contains(DebugMethod.HOOKING_FRAMEWORK) -> ThreatLevel.MEDIUM
 
@@ -438,7 +436,7 @@ class AntiDebugDetection(private val context: Context) {
             debugStatus = debugStatus,
             isSecure = debugStatus.threatLevel <= ThreatLevel.LOW,
             shouldLockdown = debugStatus.threatLevel >= ThreatLevel.HIGH,
-            shouldSelfDestruct = debugStatus.threatLevel == ThreatLevel.CRITICAL
+            shouldSelfDestruct = debugStatus.threatLevel == ThreatLevel.CRITICAL,
         )
     }
 
@@ -446,6 +444,6 @@ class AntiDebugDetection(private val context: Context) {
         val debugStatus: DebugStatus,
         val isSecure: Boolean,
         val shouldLockdown: Boolean,
-        val shouldSelfDestruct: Boolean
+        val shouldSelfDestruct: Boolean,
     )
 }

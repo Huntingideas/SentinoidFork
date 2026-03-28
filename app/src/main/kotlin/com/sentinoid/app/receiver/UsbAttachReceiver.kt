@@ -8,10 +8,12 @@ import android.hardware.usb.UsbManager
 import com.sentinoid.app.bridge.BridgeModeManager
 
 class UsbAttachReceiver : BroadcastReceiver() {
-
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         val action = intent.action
-        
+
         if (UsbManager.ACTION_USB_DEVICE_ATTACHED == action) {
             val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
             device?.let {

@@ -4,22 +4,23 @@ import java.math.BigInteger
 import java.security.SecureRandom
 
 class ShamirSecretSharing {
-
     companion object {
         private const val PRIME_BIT_LENGTH = 257
-        private val PRIME = BigInteger(
-            "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16
-        )
+        private val PRIME =
+            BigInteger(
+                "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141",
+                16,
+            )
     }
 
     data class Share(
         val x: BigInteger,
         val y: BigInteger,
         val threshold: Int,
-        val totalShares: Int
+        val totalShares: Int,
     ) {
         fun toStringRepresentation(): String {
-            return "${x.toString(16)}:${y.toString(16)}:${threshold}:${totalShares}"
+            return "${x.toString(16)}:${y.toString(16)}:$threshold:$totalShares"
         }
 
         companion object {
@@ -29,7 +30,7 @@ class ShamirSecretSharing {
                     x = BigInteger(parts[0], 16),
                     y = BigInteger(parts[1], 16),
                     threshold = parts[2].toInt(),
-                    totalShares = parts[3].toInt()
+                    totalShares = parts[3].toInt(),
                 )
             }
         }
@@ -38,7 +39,7 @@ class ShamirSecretSharing {
     fun splitSecret(
         secret: ByteArray,
         threshold: Int,
-        totalShares: Int
+        totalShares: Int,
     ): List<Share> {
         require(threshold in 2..totalShares) { "Threshold must be between 2 and totalShares" }
 
@@ -60,8 +61,8 @@ class ShamirSecretSharing {
     }
 
     fun reconstructSecret(shares: List<Share>): ByteArray {
-        require(shares.size >= shares.first().threshold) { 
-            "Not enough shares to reconstruct" 
+        require(shares.size >= shares.first().threshold) {
+            "Not enough shares to reconstruct"
         }
 
         val threshold = shares.first().threshold
@@ -104,7 +105,10 @@ class ShamirSecretSharing {
         return coefficient
     }
 
-    private fun evaluatePolynomial(coefficients: List<BigInteger>, x: BigInteger): BigInteger {
+    private fun evaluatePolynomial(
+        coefficients: List<BigInteger>,
+        x: BigInteger,
+    ): BigInteger {
         var result = BigInteger.ZERO
         var power = BigInteger.ONE
 
@@ -122,7 +126,7 @@ class ShamirSecretSharing {
         val threshold = shares.first().threshold
         val totalShares = shares.first().totalShares
 
-        return shares.size >= threshold && 
-               shares.all { it.threshold == threshold && it.totalShares == totalShares }
+        return shares.size >= threshold &&
+            shares.all { it.threshold == threshold && it.totalShares == totalShares }
     }
 }

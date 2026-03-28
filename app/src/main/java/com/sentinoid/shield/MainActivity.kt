@@ -12,10 +12,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.sentinoid.shield.ui.theme.SentinoidTheme
+import androidx.room.Room
+import com.sentinoid.shield.ui.theme.sentinoidTheme
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
-import androidx.room.Room
 
 class MainActivity : ComponentActivity() {
     private var db: SovereignDatabase? = null
@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
 
         window.setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
-            WindowManager.LayoutParams.FLAG_SECURE
+            WindowManager.LayoutParams.FLAG_SECURE,
         )
 
         val passphrase = KeyManager.getOrCreatePassphrase(this)
@@ -34,21 +34,23 @@ class MainActivity : ComponentActivity() {
 
         val factory = SupportFactory(passphrase)
 
-        db = Room.databaseBuilder(
-            applicationContext,
-            SovereignDatabase::class.java,
-            "sentinoid_ledger.db"
-        )
-            .openHelperFactory(factory)
-            .build()
+        db =
+            Room.databaseBuilder(
+                applicationContext,
+                SovereignDatabase::class.java,
+                "sentinoid_ledger.db",
+            )
+                .openHelperFactory(SupportFactory(passphrase))
+                .openHelperFactory(factory)
+                .build()
 
         enableEdgeToEdge()
         setContent {
-            SentinoidTheme {
+            sentinoidTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
+                    greeting(
                         name = "Android",
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding),
                     )
                 }
             }
@@ -62,17 +64,20 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
+fun greeting(
+    name: String,
+    modifier: Modifier = Modifier,
+) {
     Text(
         text = "Hello $name!",
-        modifier = modifier
+        modifier = modifier,
     )
 }
 
 @Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
-    SentinoidTheme {
-        Greeting("Android")
+fun greetingPreview() {
+    sentinoidTheme {
+        greeting("Android")
     }
 }
